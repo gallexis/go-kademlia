@@ -8,7 +8,7 @@ import (
 const BitsInNodeID = 160
 const BytesInNodeID = BitsInNodeID / 8
 
-type NodeID [BytesInNodeID]byte
+type NodeID [BytesInNodeID]uint8
 
 type equality uint8
 
@@ -56,7 +56,7 @@ func NewNodeID() (n NodeID) {
 	return
 }
 
-func (_ NodeID) getBucketNumber(xoredID NodeID) int {
+func (_ NodeID) GetBucketNumber(xoredID NodeID) int {
 	bytePosition := 0
 	bitPosition := 0
 
@@ -76,4 +76,22 @@ func (_ NodeID) getBucketNumber(xoredID NodeID) int {
 
 func (n NodeID) String() string {
 	return hex.EncodeToString(n[:])
+}
+
+func StringToNodeID(data string) (n NodeID){
+	nodeIdToByte ,err := hex.DecodeString(data)
+	if err != nil{
+		panic("")
+	}
+	for i, ps := range nodeIdToByte {
+		n[i] = ps
+	}
+	return n
+}
+
+func FakeNodeID(id uint8) (n NodeID) {
+	for i := 0; i < BytesInNodeID; i++ {
+		n[i] = id
+	}
+	return
 }

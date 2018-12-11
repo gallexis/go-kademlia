@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"kademlia/datastructure"
 	"math/rand"
 	"time"
 )
@@ -12,6 +10,5 @@ func init() {
 }
 
 func main() {
-	n := datastructure.NewNodeID()
-	fmt.Println(n)
+
 }

@@ -1,11 +1,12 @@
-package datastructure
+package test
 
 import (
+	ds "kademlia/datastructure"
 	"testing"
 )
 
 // 0b10001101 = 0x8d
-var selfID = NodeID{
+var selfID = ds.NodeID{
 	0x8d,
 	0x8d,
 	0x8d,
@@ -33,11 +34,11 @@ var selfID = NodeID{
 
 // 0b10101101 = 0xad
 // 0x8d ^ 0xad = 0b00100001 (0x21)
-func fakeContact(position int, value byte) Contact {
+func fakeContact(position int, value byte) ds.Contact {
 	nid := selfID
 	nid[position] = value
 
-	return Contact{
+	return ds.Contact{
 		IP:     "",
 		Port:   0,
 		NodeID: nid,
@@ -45,24 +46,24 @@ func fakeContact(position int, value byte) Contact {
 }
 
 func TestNewRoutingTable(t *testing.T) {
-	rt := NewRoutingTable(FakeNodeID(0x8d))
+	rt := ds.NewRoutingTable(ds.FakeNodeID(0x8d))
 
 	for i := 0; i < len(rt.KBuckets); i++ {
-		if rt.KBuckets[i].K != K || rt.KBuckets[i].Contacts.Len() != 0 {
+		if rt.KBuckets[i].K != ds.K || rt.KBuckets[i].Contacts.Len() != 0 {
 			t.Error("problem with K or kbuckets' length")
 		}
 	}
-	if rt.K != K {
+	if rt.K != ds.K {
 		t.Error("problem with K")
 	}
-	if rt.Alpha != Alpha {
+	if rt.Alpha != ds.Alpha {
 		t.Error("problem with Alpha")
 	}
 }
 
 func TestRoutingTable_Insert(t *testing.T) {
 	k := 2
-	rt := NewRoutingTableWithDetails(FakeNodeID(0x8d), k, Alpha)
+	rt := ds.NewRoutingTableWithDetails(ds.FakeNodeID(0x8d), k, ds.Alpha)
 	contact1 := fakeContact(2, 0xad)
 	contact2 := fakeContact(2, 0xac)
 	contact3 := fakeContact(2, 0xa0)
@@ -81,7 +82,7 @@ func TestRoutingTable_Insert(t *testing.T) {
 
 func TestRoutingTable_GetOne(t *testing.T) {
 	k := 2
-	rt := NewRoutingTableWithDetails(FakeNodeID(0x8d), k, Alpha)
+	rt := ds.NewRoutingTableWithDetails(ds.FakeNodeID(0x8d), k, ds.Alpha)
 	contact1 := fakeContact(2, 0xad)
 	contact2 := fakeContact(2, 0xac)
 
@@ -97,21 +98,21 @@ func TestRoutingTable_GetOne(t *testing.T) {
 
 func TestRoutingTable_GetOne_Fail(t *testing.T) {
 	k := 2
-	rt := NewRoutingTableWithDetails(FakeNodeID(0x8d), k, Alpha)
+	rt := ds.NewRoutingTableWithDetails(ds.FakeNodeID(0x8d), k, ds.Alpha)
 	contact1 := fakeContact(2, 0xad)
 	contact2 := fakeContact(2, 0xac)
 
 	rt.Insert(contact1)
 
 	contact, exists := rt.GetOne(contact2.NodeID)
-	if exists || (contact != Contact{}) {
+	if exists || (contact != ds.Contact{}) {
 		t.Error("problem in GetOne")
 	}
 }
 
 func TestRoutingTable_Get_withFullKB(t *testing.T) {
 	k := 2
-	rt := NewRoutingTableWithDetails(FakeNodeID(0x8d), k, Alpha)
+	rt := ds.NewRoutingTableWithDetails(ds.FakeNodeID(0x8d), k, ds.Alpha)
 	contact1 := fakeContact(2, 0xad)
 	contact2 := fakeContact(2, 0xac)
 	contact3 := fakeContact(0, 0xFF)
@@ -131,7 +132,7 @@ func TestRoutingTable_Get_withFullKB(t *testing.T) {
 
 func TestRoutingTable_Get_withoutFullKB(t *testing.T) {
 	k := 5
-	rt := NewRoutingTableWithDetails(FakeNodeID(0x8d), k, Alpha)
+	rt := ds.NewRoutingTableWithDetails(ds.FakeNodeID(0x8d), k, ds.Alpha)
 	contact1 := fakeContact(2, 0xad)
 	contact2 := fakeContact(2, 0xac)
 	contact3 := fakeContact(0, 0xFF)
@@ -158,7 +159,7 @@ func TestRoutingTable_Get_withoutFullKB(t *testing.T) {
 
 func TestRoutingTable_Get_FullTotalKB(t *testing.T) {
 	k := 4
-	rt := NewRoutingTableWithDetails(FakeNodeID(0x8d), k, Alpha)
+	rt := ds.NewRoutingTableWithDetails(ds.FakeNodeID(0x8d), k, ds.Alpha)
 	contact1 := fakeContact(2, 0xad)
 	contact2 := fakeContact(2, 0xac)
 	contact3 := fakeContact(0, 0xFF)

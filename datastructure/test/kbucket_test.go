@@ -1,4 +1,4 @@
-package datastructure
+package test
 
 import (
 	"io/ioutil"
@@ -7,21 +7,22 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	ds "kademlia/datastructure"
 )
 
 // 0b1000010 = 0x42
 // 0b1101101 = 0x6D
 
-func fakeRandomNodeID() NodeID {
-	var n NodeID
-	for i := 0; i < BytesInNodeID; i++ {
+func fakeRandomNodeID() ds.NodeID {
+	var n ds.NodeID
+	for i := 0; i < ds.BytesInNodeID; i++ {
 		n[i] = uint8(rand.Intn(255))
 	}
 	return n
 }
 
-func newRandomContact() Contact {
-	return Contact{
+func newRandomContact() ds.Contact {
+	return ds.Contact{
 		IP:     "12.34.56.78",
 		Port:   1337,
 		NodeID: fakeRandomNodeID(),
@@ -30,7 +31,7 @@ func newRandomContact() Contact {
 
 func TestNewKBucket(t *testing.T) {
 	k := 10
-	kb := NewKBucket(k)
+	kb := ds.NewKBucket(k)
 
 	if kb.K != k {
 		t.Error("K is incorrect.")
@@ -44,7 +45,7 @@ func TestNewKBucket(t *testing.T) {
 
 func TestNewKBucket_Fails(t *testing.T) {
 	if os.Getenv("BE_CRASHER") == "1" {
-		NewKBucket(0)
+		ds.NewKBucket(0)
 		return
 	}
 
@@ -74,7 +75,7 @@ func TestNewKBucket_Fails(t *testing.T) {
 
 func TestInsertKB_full(t *testing.T) {
 	k := 2
-	kb := NewKBucket(k)
+	kb := ds.NewKBucket(k)
 	c1 := newRandomContact()
 	c2 := newRandomContact()
 	c3 := newRandomContact()
@@ -89,8 +90,8 @@ func TestInsertKB_full(t *testing.T) {
 
 	// assert node2 & node3 are the only one in the list
 	nodeIDs := kb.Contacts.Keys()
-	node2 := nodeIDs[0].(NodeID)
-	node3 := nodeIDs[1].(NodeID)
+	node2 := nodeIDs[0].(ds.NodeID)
+	node3 := nodeIDs[1].(ds.NodeID)
 
 	if c2.NodeID != node2 {
 		t.Error("c2.nodeID != node2", c2.NodeID, node2)
@@ -103,7 +104,7 @@ func TestInsertKB_full(t *testing.T) {
 
 func TestInsertKB_notFull(t *testing.T) {
 	k := 2
-	kb := NewKBucket(k)
+	kb := ds.NewKBucket(k)
 	c1 := newRandomContact()
 	c2 := newRandomContact()
 
@@ -123,8 +124,8 @@ func TestInsertKB_notFull(t *testing.T) {
 
 	// test If c1 & C2 correctly inserted
 	nodes := kb.Contacts.Keys()
-	node1 := nodes[0].(NodeID)
-	node2 := nodes[1].(NodeID)
+	node1 := nodes[0].(ds.NodeID)
+	node2 := nodes[1].(ds.NodeID)
 
 	if c1.NodeID != node1 {
 		t.Error("c1.NodeID != node1")
@@ -137,7 +138,7 @@ func TestInsertKB_notFull(t *testing.T) {
 
 func TestInsertKB_update(t *testing.T) {
 	k := 3
-	kb := NewKBucket(k)
+	kb := ds.NewKBucket(k)
 	c1 := newRandomContact()
 	c2 := newRandomContact()
 
@@ -154,8 +155,8 @@ func TestInsertKB_update(t *testing.T) {
 	}
 
 	nodes := kb.Contacts.Keys()
-	node1 := nodes[1].(NodeID)
-	node2 := nodes[0].(NodeID)
+	node1 := nodes[1].(ds.NodeID)
+	node2 := nodes[0].(ds.NodeID)
 
 	if c1.NodeID != node1 {
 		t.Error("c1.NodeID != node1")

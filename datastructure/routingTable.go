@@ -37,7 +37,7 @@ func NewRoutingTableWithDetails(nodeID NodeID, k int, alpha int) RoutingTable {
 
 func (rt *RoutingTable) Insert(newContact Contact) {
 	xoredID := rt.NodeID.XOR(newContact.NodeID)
-	position := rt.NodeID.getBucketNumber(xoredID)
+	position := rt.NodeID.GetBucketNumber(xoredID)
 
 	rt.KBuckets[position].mutex.Lock()
 	rt.KBuckets[position].Insert(newContact)
@@ -46,7 +46,7 @@ func (rt *RoutingTable) Insert(newContact Contact) {
 
 func (rt *RoutingTable) Get(otherID NodeID) (contacts []Contact) {
 	xoredID := rt.NodeID.XOR(otherID)
-	bucketNumber := rt.NodeID.getBucketNumber(xoredID)
+	bucketNumber := rt.NodeID.GetBucketNumber(xoredID)
 
 	rt.KBuckets[bucketNumber].mutex.Lock()
 	defer rt.KBuckets[bucketNumber].mutex.Unlock()
@@ -65,7 +65,7 @@ func (rt *RoutingTable) Get(otherID NodeID) (contacts []Contact) {
 
 func (rt *RoutingTable) GetOne(otherID NodeID) (Contact, bool) {
 	xoredID := rt.NodeID.XOR(otherID)
-	bucketNumber := rt.NodeID.getBucketNumber(xoredID)
+	bucketNumber := rt.NodeID.GetBucketNumber(xoredID)
 
 	rt.KBuckets[bucketNumber].mutex.Lock()
 	defer rt.KBuckets[bucketNumber].mutex.Unlock()
