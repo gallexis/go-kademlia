@@ -1,13 +1,11 @@
 package messages
 
 import (
-    "github.com/ehmry/go-bencode"
     "kademlia/datastructure"
-    "log"
 )
 
 type announcePeers struct {
-    T  string
+    T  Token
     Id datastructure.NodeID
 }
 
@@ -16,24 +14,19 @@ type AnnouncePeersResponse struct {
 }
 
 func (g *AnnouncePeersResponse) Decode(t string, r Response) {
-    g.T = t
-    g.Id = datastructure.StringToNodeID(r.Id)
+    g.T = NewTokenFromString(t)
+    g.Id = datastructure.BytesToNodeID(r.Id)
 }
 
-func (_ AnnouncePeersResponse) Encode(t string, id datastructure.NodeID) []byte {
+func (_ AnnouncePeersResponse) Encode(t Token, id datastructure.NodeID) []byte {
     q := ResponseMessage{}
     q.T = t
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id": id.String(),
-    }
-    buffer, err := bencode.Marshal(q)
-
-    if err != nil {
-        log.Println(err.Error())
+        "id": id.Bytes(),
     }
 
-    return buffer
+    return MessageToBytes(q)
 }
 
 type AnnouncePeersRequest struct {
@@ -45,30 +38,25 @@ type AnnouncePeersRequest struct {
 }
 
 func (g *AnnouncePeersRequest) Decode(t string, a Answer) {
-    g.T = t
-    g.Id = datastructure.StringToNodeID(a.Id)
+    g.T = NewTokenFromString(t)
+    g.Id = datastructure.BytesToNodeID(a.Id)
     g.ImpliedPort = a.ImpliedPort
-    g.InfoHash = datastructure.StringToNodeID(a.InfoHash)
+    g.InfoHash = datastructure.BytesToNodeID(a.InfoHash)
     g.Port = a.Port
-    g.Token = a.Token
+    g.Token = string(a.Token)
 }
 
-func (_ AnnouncePeersRequest) Encode(t, token string, id, infoHash datastructure.NodeID, impliedPort, port int) []byte {
+func (_ AnnouncePeersRequest) Encode(t, token Token, id, infoHash datastructure.NodeID, impliedPort, port int) []byte {
     q := RequestMessage{}
-    q.T = t
+    q.T = t.String()
     q.Y = "q"
     q.A = map[string]interface{}{
-        "id":           id.String(),
+        "id":           id.Bytes(),
         "implied_port": impliedPort,
-        "info_hash":    infoHash.String(),
+        "info_hash":    infoHash.Bytes(),
         "port":         port,
-        "token":        token,
+        "token":        token.String(),
     }
 
-    buffer, err := bencode.Marshal(q)
-    if err != nil {
-        log.Println(err.Error())
-    }
-
-    return buffer
+    return MessageToBytes(q)
 }

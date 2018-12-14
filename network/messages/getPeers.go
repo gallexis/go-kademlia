@@ -1,92 +1,83 @@
 package messages
 
 import (
-    "github.com/ehmry/go-bencode"
     "kademlia/datastructure"
-    "log"
 )
 
 type getPeers struct {
-    T string
+    T Token
 }
 
 type GetPeersResponse struct {
     getPeers
     Id     datastructure.NodeID
-    Token  string
+    Token  Token
     Values []string
 }
 
 func (g *GetPeersResponse) Decode(t string, r Response) {
-    g.T = t
-    g.Id = datastructure.StringToNodeID(r.Id)
+    g.T = NewTokenFromString(t)
+    g.Id = datastructure.BytesToNodeID(r.Id)
     g.Token = r.Token
     g.Values = r.Values
 }
 
-func (_ GetPeersResponse) Encode(t string, id datastructure.NodeID, token string, values []string) []byte {
+func (_ GetPeersResponse) Encode(t Token, id datastructure.NodeID, token Token, values []string) []byte {
     q := ResponseMessage{}
     q.T = t
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id":     id.String(),
+        "id":     id.Bytes(),
         "token":  token,
         "values": values,
     }
 
-    buffer, err := bencode.Marshal(q)
-    if err != nil {
-        log.Println(err.Error())
-    }
-    return buffer
+    return MessageToBytes(q)
 }
 
 type GetPeersResponseWithNodes struct {
     getPeers
     Id    datastructure.NodeID
-    Token string
+    Token Token
     Nodes []datastructure.NodeID
 }
 
 func (g *GetPeersResponseWithNodes) Decode(t string, r Response) {
-    numberOfNodes := len(r.Nodes) / 40
+    lengthNodeID := datastructure.BytesInNodeID
+    numberOfNodes := len(r.Nodes) / lengthNodeID
     if numberOfNodes > 8 {
         numberOfNodes = 8
     }
-    g.T = t
-    g.Id = datastructure.StringToNodeID(r.Id)
+    g.T = NewTokenFromString(t)
+    g.Id = datastructure.BytesToNodeID(r.Id)
     g.Token = r.Token
     for i := 0; i < numberOfNodes; i++ {
-        offset := i * 40
-        g.Nodes = append(g.Nodes, datastructure.StringToNodeID(r.Nodes[offset:(offset + 40)]))
+        offset := i * lengthNodeID
+        g.Nodes = append(g.Nodes, datastructure.BytesToNodeID(r.Nodes[offset:(offset + lengthNodeID)]))
     }
 }
 
-func (_ GetPeersResponseWithNodes) Encode(t string, id datastructure.NodeID, token string, nodes []datastructure.NodeID) []byte {
-    nodesToString := ""
+func (_ GetPeersResponseWithNodes) Encode(t Token, id datastructure.NodeID, token Token, nodes []datastructure.NodeID) []byte {
+    var byteNodes []byte
     numberOfNodes := len(nodes)
     if numberOfNodes > 8 {
         numberOfNodes = 8
     }
+
     for i := 0; i < numberOfNodes; i++ {
-        nodesToString += nodes[i].String()
+        byteNodes = append(byteNodes, nodes[i].Bytes()...)
     }
 
     q := ResponseMessage{}
-    q.T = t
+    q.T = []byte(t)
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id":    id.String(),
+        "id":    id.Bytes(),
         "token": token,
-        "nodes": nodesToString,
+        "nodes": byteNodes,
     }
 
-    buffer, err := bencode.Marshal(q)
-    if err != nil {
-        log.Println(err.Error())
-    }
-
-    return buffer
+    return MessageToBytes(q)
 }
 
 type GetPeersRequest struct {
@@ -96,25 +87,20 @@ type GetPeersRequest struct {
 }
 
 func (g *GetPeersRequest) Decode(t string, a Answer) {
-    g.T = t
-    g.Id = datastructure.StringToNodeID(a.Id)
-    g.InfoHash = datastructure.StringToNodeID(a.InfoHash)
+    g.T = NewTokenFromString(t)
+    g.Id = datastructure.BytesToNodeID(a.Id)
+    g.InfoHash = datastructure.BytesToNodeID(a.InfoHash)
 }
 
-func (_ GetPeersRequest) Encode(t string, id, infoHash datastructure.NodeID) []byte {
+func (_ GetPeersRequest) Encode(t Token, id, infoHash datastructure.NodeID) []byte {
     q := RequestMessage{}
-    q.T = t
+    q.T = t.String()
     q.Y = "q"
     q.Q = "get_peers"
     q.A = map[string]interface{}{
-        "id":        id.String(),
-        "info_hash": infoHash.String(),
-    }
-    buffer, err := bencode.Marshal(q)
-
-    if err != nil {
-        log.Println(err.Error())
+        "id":        id.Bytes(),
+        "info_hash": infoHash.Bytes(),
     }
 
-    return buffer
+    return MessageToBytes(q)
 }

@@ -8,7 +8,7 @@ import (
 const BitsInNodeID = 160
 const BytesInNodeID = BitsInNodeID / 8
 
-type NodeID [BytesInNodeID]uint8
+type NodeID [BytesInNodeID]byte
 
 type equality uint8
 
@@ -51,7 +51,7 @@ func (n NodeID) XOR(other NodeID) (newNodeID NodeID) {
 
 func NewNodeID() (n NodeID) {
 	for i := 0; i < BytesInNodeID; i++ {
-		n[i] = uint8(rand.Intn(256))
+		n[i] = byte(rand.Intn(256))
 	}
 	return
 }
@@ -78,13 +78,27 @@ func (n NodeID) String() string {
 	return hex.EncodeToString(n[:])
 }
 
+func (n NodeID) Bytes() (b []byte) {
+	for i := 0; i < 20; i++ {
+		b = append(b, n[i])
+	}
+	return
+}
+
 func StringToNodeID(data string) (n NodeID){
 	nodeIdToByte ,err := hex.DecodeString(data)
 	if err != nil{
-		panic("")
+		panic("string to nodeID")
 	}
 	for i, ps := range nodeIdToByte {
 		n[i] = ps
+	}
+	return n
+}
+
+func BytesToNodeID(data []byte) (n NodeID){
+	for i := range n {
+		n[i] = data[i]
 	}
 	return n
 }
