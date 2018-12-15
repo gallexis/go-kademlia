@@ -2,15 +2,16 @@ package test
 
 import (
     "kademlia/datastructure"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
     "testing"
 )
 
 func TestPingResponse(t *testing.T) {
     randomNodeID := datastructure.FakeNodeID(0x12)
-    encoded := messages.PingResponse{}.Encode("aafst", randomNodeID)
-    g := messages.BytesToMessage(encoded)
-    response := messages.PingResponse{}
+    tx := krpc.NewRandomBytesFromString("aaeebb")
+    encoded := krpc.PingResponse{}.Encode(tx, randomNodeID)
+    g := krpc.BytesToMessage(encoded)
+    response := krpc.PingResponse{}
     response.Decode(g.T, g.R.Id)
 
     if !response.Id.Equals(randomNodeID){
@@ -20,9 +21,10 @@ func TestPingResponse(t *testing.T) {
 
 func TestPingRequest(t *testing.T) {
     randomNodeID := datastructure.FakeNodeID(0x12)
-    encoded := messages.PingRequest{}.Encode("aafst", randomNodeID)
-    g := messages.BytesToMessage(encoded)
-    response := messages.PingRequest{}
+    tx := krpc.NewRandomBytesFromString("aaeebb")
+    encoded := krpc.PingRequest{}.Encode(tx, randomNodeID)
+    g := krpc.BytesToMessage(encoded)
+    response := krpc.PingRequest{}
     response.Decode(g.T, g.A.Id)
 
     if !response.Id.Equals(randomNodeID){

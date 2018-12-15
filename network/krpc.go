@@ -1,31 +1,30 @@
 package network
 
 import (
-    "bytes"
     "fmt"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
 )
 
 func Router(data []byte) {
-    g := messages.BytesToMessage(data)
+    g := krpc.BytesToMessage(data)
     switch g.Y {
     case "q":
 
         switch g.Q {
         case "ping":
-            ping := messages.PingRequest{}
+            ping := krpc.PingRequest{}
             ping.Decode(g.T, g.A.Id)
 
         case "find_node":
-            findNodesRequest := messages.FindNodeRequest{}
+            findNodesRequest := krpc.FindNodeRequest{}
             findNodesRequest.Decode(g.T, g.A)
 
         case "get_peers":
-            getPeers := messages.GetPeersRequest{}
+            getPeers := krpc.GetPeersRequest{}
             getPeers.Decode(g.T, g.A)
 
         case "announce_peer":
-            announcePeers := messages.AnnouncePeersRequest{}
+            announcePeers := krpc.AnnouncePeersRequest{}
             announcePeers.Decode(g.T, g.A)
 
         default:
@@ -35,23 +34,23 @@ func Router(data []byte) {
     case "r":
 
         switch {
-        case len(g.R.Values) > 0 && !bytes.Equal(g.R.Token, []byte{}): //&& g.R.Id != "":
-            getPeers := messages.GetPeersResponse{}
+        case len(g.R.Values) > 0 && g.R.Token !=  "": //&& g.R.Id != "":
+            getPeers := krpc.GetPeersResponse{}
             getPeers.Decode(g.T, g.R)
             fmt.Printf("getPeers1: %+v \n", getPeers)
 
-        case len(g.R.Nodes) > 0 && !bytes.Equal(g.R.Token, []byte{}): //&& g.R.Id != "":
-            getPeers := messages.GetPeersResponseWithNodes{}
+        case len(g.R.Nodes) > 0 && g.R.Token !=  "": //&& g.R.Id != "":
+            getPeers := krpc.GetPeersResponseWithNodes{}
             getPeers.Decode(g.T, g.R)
             fmt.Printf("getPeers2: %+v \n", getPeers)
 
         case len(g.R.Nodes) > 0: // && g.R.Id != "":
-            findNodes := messages.FindNodeResponse{}
+            findNodes := krpc.FindNodeResponse{}
             findNodes.Decode(g.T, g.R)
             fmt.Printf("findNodes: %+v \n", findNodes)
 
         case len(g.R.Id) > 0:
-            ping := messages.PingResponse{}
+            ping := krpc.PingResponse{}
             ping.Decode(g.T, g.R.Id)
             fmt.Printf("ping: %+v \n", ping)
 
@@ -59,7 +58,7 @@ func Router(data []byte) {
             AnnouncePeersResponse == PingResponse
 
                 announcePeers := AnnouncePeersResponse{}
-                announcePeers.Decode(g.T, g.R)
+                announcePeers.Decode(g.RandomBytes, g.R)
                 fmt.Println(announcePeers)
              */
 

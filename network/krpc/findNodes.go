@@ -1,11 +1,11 @@
-package messages
+package krpc
 
 import (
     "kademlia/datastructure"
 )
 
 type findNode struct {
-    T  Token
+    T  RandomBytes
     Id datastructure.NodeID
 }
 
@@ -21,7 +21,7 @@ func (e *FindNodeResponse) Decode(t string, response Response) {
         numberOfNodes = 8
     }
 
-    e.T = NewTokenFromString(t)
+    e.T = NewRandomBytesFromString(t)
     e.Id = datastructure.BytesToNodeID(response.Id)
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
@@ -29,7 +29,7 @@ func (e *FindNodeResponse) Decode(t string, response Response) {
     }
 }
 
-func (_ FindNodeResponse) Encode(t Token, id datastructure.NodeID, nodes []datastructure.NodeID) []byte {
+func (_ FindNodeResponse) Encode(t RandomBytes, id datastructure.NodeID, nodes []datastructure.NodeID) []byte {
     numberOfNodes := len(nodes)
     if numberOfNodes > 8 {
         numberOfNodes = 8
@@ -37,7 +37,7 @@ func (_ FindNodeResponse) Encode(t Token, id datastructure.NodeID, nodes []datas
 
     q := ResponseMessage{}
     var byteNodes []byte
-    q.T = t
+    q.T = t.String()
     q.Y = "r"
 
     for i := 0; i < numberOfNodes; i++ {
@@ -58,12 +58,12 @@ type FindNodeRequest struct {
 }
 
 func (e *FindNodeRequest) Decode(t string, a Answer) {
-    e.T = NewTokenFromString(t)
+    e.T = NewRandomBytesFromString(t)
     e.Id = datastructure.BytesToNodeID(a.Id)
     e.Target = datastructure.BytesToNodeID(a.Target)
 }
 
-func (_ FindNodeRequest) Encode(t Token, id, target datastructure.NodeID) []byte {
+func (_ FindNodeRequest) Encode(t RandomBytes, id, target datastructure.NodeID) []byte {
     q := RequestMessage{}
     q.T = t.String()
     q.Y = "q"

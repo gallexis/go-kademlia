@@ -2,10 +2,10 @@ package handler
 
 import (
     "fmt"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
 )
 
-func OnGetPeers(getPeersChan chan messages.GetPeersResponse) {
+func OnGetPeers(getPeersChan chan krpc.GetPeersResponse) {
     for {
         select {
         case getPeers := <-getPeersChan:
@@ -14,7 +14,7 @@ func OnGetPeers(getPeersChan chan messages.GetPeersResponse) {
     }
 }
 
-func OnGetPeersWithNodes(getPeersWithNodesChan chan messages.GetPeersResponseWithNodes) {
+func OnGetPeersWithNodes(getPeersWithNodesChan chan krpc.GetPeersResponseWithNodes) {
     for {
         select {
         case getPeersWithNodes := <-getPeersWithNodesChan:

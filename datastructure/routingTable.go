@@ -22,7 +22,7 @@ func NewRoutingTable(nodeID NodeID) RoutingTable {
 
 func NewRoutingTableWithDetails(nodeID NodeID, k int, alpha int) RoutingTable {
 	rt := RoutingTable{
-		KBuckets: [160]KBucket{},
+		KBuckets: [BitsInNodeID]KBucket{},
 		NodeID:   nodeID,
 		K:        k,
 		Alpha:    alpha,
@@ -104,6 +104,7 @@ func generateClosestNeighboursPositions(origin int) []int {
 	after := 0
 	before := 0
 
+	// TODO: write own Max function
 	for i := 0; i < int(math.Max(float64(origin), float64(BitsInNodeID-origin))+1); i++ {
 		after = (origin + i) % BitsInNodeID
 		before = origin - i

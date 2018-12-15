@@ -2,10 +2,10 @@ package handler
 
 import (
     "fmt"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
 )
 
-func OnAnnouncePeer(announcePeerChan chan messages.AnnouncePeersResponse) {
+func OnAnnouncePeer(announcePeerChan chan krpc.AnnouncePeersResponse) {
     for {
         select {
         case announcePeer := <- announcePeerChan:

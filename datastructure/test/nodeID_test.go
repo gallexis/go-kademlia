@@ -79,11 +79,3 @@ func TestNodeID_String(t *testing.T) {
 	}
 }
 
-func TestNodeToString_stringToNode(t *testing.T){
-	a := ds.NewNodeID()
-	v := ds.StringToNodeID(a.String()).String()
-
-	if v != a.String(){
-		t.Error("no match")
-	}
-}

@@ -2,17 +2,18 @@ package test
 
 import (
     "kademlia/datastructure"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
     "testing"
 )
 
 func TestFindNodeResponse(t *testing.T) {
     randomNodeID := datastructure.FakeNodeID(0x12)
     randomNodeID2 := datastructure.FakeNodeID(0xF4)
-    encoded := messages.FindNodeResponse{}.Encode("aaee", randomNodeID, []datastructure.NodeID{randomNodeID, randomNodeID2})
-    g := messages.BytesToMessage(encoded)
+    tx := krpc.NewRandomBytesFromString("aaeebb")
+    encoded := krpc.FindNodeResponse{}.Encode(tx, randomNodeID, []datastructure.NodeID{randomNodeID, randomNodeID2})
+    g := krpc.BytesToMessage(encoded)
 
-    response := messages.FindNodeResponse{}
+    response := krpc.FindNodeResponse{}
     response.Decode(g.T, g.R)
 
     if !response.Id.Equals(randomNodeID) ||
@@ -26,10 +27,11 @@ func TestFindNodeResponse(t *testing.T) {
 func TestFindNodeRequest(t *testing.T) {
     randomNodeID := datastructure.FakeNodeID(0x12)
     randomNodeID2 := datastructure.FakeNodeID(0xF4)
-    encoded := messages.FindNodeRequest{}.Encode("aaee", randomNodeID, randomNodeID2)
-    g := messages.BytesToMessage(encoded)
+    tx := krpc.NewRandomBytesFromString("aaeebb")
+    encoded := krpc.FindNodeRequest{}.Encode(tx, randomNodeID, randomNodeID2)
+    g := krpc.BytesToMessage(encoded)
 
-    response := messages.FindNodeRequest{}
+    response := krpc.FindNodeRequest{}
     response.Decode(g.T, g.A)
 
     if !response.Id.Equals(randomNodeID) ||

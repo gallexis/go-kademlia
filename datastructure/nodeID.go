@@ -79,21 +79,7 @@ func (n NodeID) String() string {
 }
 
 func (n NodeID) Bytes() (b []byte) {
-	for i := 0; i < 20; i++ {
-		b = append(b, n[i])
-	}
-	return
-}
-
-func StringToNodeID(data string) (n NodeID){
-	nodeIdToByte ,err := hex.DecodeString(data)
-	if err != nil{
-		panic("string to nodeID")
-	}
-	for i, ps := range nodeIdToByte {
-		n[i] = ps
-	}
-	return n
+	return n[:]
 }
 
 func BytesToNodeID(data []byte) (n NodeID){

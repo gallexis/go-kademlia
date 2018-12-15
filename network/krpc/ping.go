@@ -1,11 +1,11 @@
-package messages
+package krpc
 
 import (
     "kademlia/datastructure"
 )
 
 type ping struct {
-    T  Token
+    T  RandomBytes
     Id datastructure.NodeID
 }
 
@@ -13,7 +13,7 @@ type PingRequest struct {
     ping
 }
 
-func (_ PingRequest) Encode(t Token, nodeID datastructure.NodeID) []byte {
+func (_ PingRequest) Encode(t RandomBytes, nodeID datastructure.NodeID) []byte {
     q := RequestMessage{}
     q.T = t.String()
     q.Y = "q"
@@ -27,7 +27,7 @@ func (_ PingRequest) Encode(t Token, nodeID datastructure.NodeID) []byte {
 }
 
 func (p *PingRequest) Decode(t string, nodeID []byte) {
-    p.T = NewTokenFromString(t)
+    p.T = NewRandomBytesFromString(t)
     p.Id = datastructure.BytesToNodeID(nodeID)
 }
 
@@ -37,13 +37,13 @@ type PingResponse struct {
 }
 
 func (p *PingResponse) Decode(t string, nodeID []byte) {
-    p.T = NewTokenFromString(t)
+    p.T = NewRandomBytesFromString(t)
     p.Id = datastructure.BytesToNodeID(nodeID)
 }
 
-func (_ PingResponse) Encode(t Token, nodeID datastructure.NodeID) []byte {
+func (_ PingResponse) Encode(t RandomBytes, nodeID datastructure.NodeID) []byte {
     q := ResponseMessage{}
-    q.T = t
+    q.T = t.String()
     q.Y = "r"
     q.R = map[string]interface{}{
         "id": nodeID.Bytes(),

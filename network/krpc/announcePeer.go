@@ -1,11 +1,11 @@
-package messages
+package krpc
 
 import (
     "kademlia/datastructure"
 )
 
 type announcePeers struct {
-    T  Token
+    T  RandomBytes
     Id datastructure.NodeID
 }
 
@@ -14,13 +14,13 @@ type AnnouncePeersResponse struct {
 }
 
 func (g *AnnouncePeersResponse) Decode(t string, r Response) {
-    g.T = NewTokenFromString(t)
+    g.T = NewRandomBytesFromString(t)
     g.Id = datastructure.BytesToNodeID(r.Id)
 }
 
-func (_ AnnouncePeersResponse) Encode(t Token, id datastructure.NodeID) []byte {
+func (_ AnnouncePeersResponse) Encode(t RandomBytes, id datastructure.NodeID) []byte {
     q := ResponseMessage{}
-    q.T = t
+    q.T = t.String()
     q.Y = "r"
     q.R = map[string]interface{}{
         "id": id.Bytes(),
@@ -38,7 +38,7 @@ type AnnouncePeersRequest struct {
 }
 
 func (g *AnnouncePeersRequest) Decode(t string, a Answer) {
-    g.T = NewTokenFromString(t)
+    g.T = NewRandomBytesFromString(t)
     g.Id = datastructure.BytesToNodeID(a.Id)
     g.ImpliedPort = a.ImpliedPort
     g.InfoHash = datastructure.BytesToNodeID(a.InfoHash)
@@ -46,7 +46,7 @@ func (g *AnnouncePeersRequest) Decode(t string, a Answer) {
     g.Token = string(a.Token)
 }
 
-func (_ AnnouncePeersRequest) Encode(t, token Token, id, infoHash datastructure.NodeID, impliedPort, port int) []byte {
+func (_ AnnouncePeersRequest) Encode(t, token RandomBytes, id, infoHash datastructure.NodeID, impliedPort, port int) []byte {
     q := RequestMessage{}
     q.T = t.String()
     q.Y = "q"

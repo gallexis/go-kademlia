@@ -2,10 +2,10 @@ package handler
 
 import (
     "fmt"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
 )
 
-func OnFindNodes(findNodesChan chan messages.FindNodeResponse) {
+func OnFindNodes(findNodesChan chan krpc.FindNodeResponse) {
     for {
         select {
         case findNodes := <-findNodesChan:

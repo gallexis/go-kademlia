@@ -2,10 +2,10 @@ package handler
 
 import (
     "fmt"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
 )
 
-func OnPing(pingChan chan messages.PingResponse) {
+func OnPing(pingChan chan krpc.PingResponse) {
     for {
         select {
         case ping := <-pingChan:

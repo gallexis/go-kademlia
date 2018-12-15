@@ -1,4 +1,4 @@
-package messages
+package krpc
 
 import (
     "encoding/hex"
@@ -12,7 +12,7 @@ type Response struct {
     Id     []byte   `bencode:"id"`
     Nodes  []byte   `bencode:"nodes"`
     Nodes6 []byte   `bencode:"nodes6"`
-    Token  []byte   `bencode:"token"`
+    Token  string   `bencode:"token"`
 }
 
 type Answer struct {
@@ -20,7 +20,7 @@ type Answer struct {
     Target      []byte `bencode:"target"`
     InfoHash    []byte `bencode:"info_hash"`
     Port        int    `bencode:"port"`
-    Token       string  `bencode:"token"`
+    Token       string `bencode:"token"`
     ImpliedPort int    `bencode:"implied_port"`
 }
 
@@ -35,34 +35,34 @@ type GenericMessage struct {
 
 // GENERIC SEND
 type RequestMessage struct {
-    T string                 `bencode:"t"`
+    T string            `bencode:"t"`
     Y string                 `bencode:"y"`
     Q string                 `bencode:"q"`
     A map[string]interface{} `bencode:"a"`
 }
 
 type ResponseMessage struct {
-    T Token                  `bencode:"t"`
+    T string            `bencode:"t"`
     Y string                 `bencode:"y"`
     R map[string]interface{} `bencode:"r"`
 }
 
-type Token []byte
+type RandomBytes []byte
 
-func (t Token) String() string {
+func (t RandomBytes) String() string {
     return hex.EncodeToString([]byte(t))
 }
 
-func NewRandomToken() Token {
-    token := make([]byte, 5)
+func NewRandomBytes(n int) RandomBytes {
+    token := make([]byte, n)
     if _, err := rand.Read(token); err != nil {
-        fmt.Printf("Failed to generate NewRandomToken: %v", err)
+        fmt.Printf("Failed to generate NewRandomBytes: %v", err)
     }
     return token
 }
 
-func NewTokenFromString(token string) Token {
-    t := Token{}
+func NewRandomBytesFromString(token string) RandomBytes {
+    t := RandomBytes{}
     t, err := hex.DecodeString(token)
     if err != nil {
         fmt.Printf("Error when decoding from string: %v", err)

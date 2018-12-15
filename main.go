@@ -5,7 +5,7 @@ import (
     "kademlia/core/handler"
     "kademlia/datastructure"
     "kademlia/network"
-    "kademlia/network/messages"
+    "kademlia/network/krpc"
     "net"
     "time"
 )
@@ -15,11 +15,11 @@ func init() {
 }
 
 func main() {
-    pingChan := make(chan messages.PingResponse)
-    findNodesChan := make(chan messages.FindNodeResponse)
-    getPeersChan := make(chan messages.GetPeersResponse)
-    getPeersWithNodesChan := make(chan messages.GetPeersResponseWithNodes)
-    announcePeerChan := make(chan messages.AnnouncePeersResponse)
+    pingChan := make(chan krpc.PingResponse)
+    findNodesChan := make(chan krpc.FindNodeResponse)
+    getPeersChan := make(chan krpc.GetPeersResponse)
+    getPeersWithNodesChan := make(chan krpc.GetPeersResponseWithNodes)
+    announcePeerChan := make(chan krpc.AnnouncePeersResponse)
 
     go handler.OnPing(pingChan)
     go handler.OnFindNodes(findNodesChan)
@@ -33,10 +33,6 @@ func main() {
     v := []string{
         "router.utorrent.com:6881",
         "router.bittorrent.com:6881",
-        "dht.transmissionbt.com:6881",
-        "router.bitcomet.com:6881",
-        "dht.aelitis.com:6881",
-        "router.magnets.im:6881",
     }
 
     raddr, err := net.ResolveUDPAddr("udp", v[1])
@@ -60,9 +56,9 @@ func main() {
         return
     }
 
-    conn.Write(messages.FindNodeRequest{}.Encode(messages.NewRandomToken(), n, n2))
-    conn.Write(messages.PingRequest{}.Encode(messages.NewRandomToken(), n))
-    conn.Write(messages.GetPeersRequest{}.Encode(messages.NewRandomToken(), n, n2))
+    conn.Write(krpc.FindNodeRequest{}.Encode(krpc.NewRandomBytes(2), n, n2))
+    conn.Write(krpc.PingRequest{}.Encode(krpc.NewRandomBytes(2), n))
+    conn.Write(krpc.GetPeersRequest{}.Encode(krpc.NewRandomBytes(2), n, n2))
 
     _, _, err = conn.ReadFrom(buffer)
     if err != nil {
