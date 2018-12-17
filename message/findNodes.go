@@ -11,7 +11,7 @@ type findNode struct {
 
 type FindNodeResponse struct {
     findNode
-    Nodes []ds.Contact
+    Contact []ds.Contact
 }
 
 func (e *FindNodeResponse) Decode(t string, response Response) {
@@ -27,12 +27,12 @@ func (e *FindNodeResponse) Decode(t string, response Response) {
         offset := i * lengthNodeID
         contact := ds.Contact{}
         contact.Decode(response.Nodes[offset:(offset + lengthNodeID)])
-        e.Nodes = append(e.Nodes, contact)
+        e.Contact = append(e.Contact, contact)
 
     }
 }
 
-func (_ FindNodeResponse) Encode(t RandomBytes, id ds.NodeID, nodes []ds.NodeID) []byte {
+func (_ FindNodeResponse) Encode(t RandomBytes, id ds.NodeID, nodes []ds.Contact) []byte {
     numberOfNodes := len(nodes)
     if numberOfNodes > 8 {
         numberOfNodes = 8

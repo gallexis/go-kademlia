@@ -17,8 +17,8 @@ func TestFindNodeResponse(t *testing.T) {
     response.Decode(g.T, g.R)
 
     if !response.Id.Equals(randomNodeID) ||
-        !response.Nodes[0].Equals(randomNodeID)||
-        !response.Nodes[1].Equals(randomNodeID2){
+        !response.Contact[0].Equals(randomNodeID)||
+        !response.Contact[1].Equals(randomNodeID2){
         t.Error("")
     }
 }

@@ -1,6 +1,7 @@
 package datastructure
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -33,6 +34,12 @@ func NewRoutingTableWithDetails(nodeID NodeID, k int, alpha int) RoutingTable {
 	}
 
 	return rt
+}
+
+func (rt *RoutingTable) Display() {
+	for i, b := range rt.KBuckets{
+		fmt.Println(i, ": ", b.Contacts.Len())
+	}
 }
 
 func (rt *RoutingTable) Insert(newContact Contact) {

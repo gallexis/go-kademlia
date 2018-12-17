@@ -23,3 +23,4 @@ func (c *Contact) Encode() []byte{
 	binary.BigEndian.PutUint16(b, c.Port)
 	return b
 }
+
