@@ -78,15 +78,14 @@ func (n NodeID) String() string {
 	return hex.EncodeToString(n[:])
 }
 
-func (n NodeID) Bytes() (b []byte) {
+func (n NodeID) Encode() (b []byte) {
 	return n[:]
 }
 
-func BytesToNodeID(data []byte) (n NodeID){
+func (n *NodeID) Decode(data []byte){
 	for i := range n {
 		n[i] = data[i]
 	}
-	return n
 }
 
 func FakeNodeID(id uint8) (n NodeID) {

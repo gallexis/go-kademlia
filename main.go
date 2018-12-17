@@ -2,33 +2,20 @@ package main
 
 import (
     "fmt"
-    "kademlia/core/handler"
-    "kademlia/datastructure"
-    "kademlia/network"
-    "kademlia/network/krpc"
+    ds "kademlia/datastructure"
+    "kademlia/message"
+    "math/rand"
     "net"
     "time"
 )
 
 func init() {
-
+    rand.Seed(time.Now().UTC().UnixNano())
 }
 
 func main() {
-    pingChan := make(chan krpc.PingResponse)
-    findNodesChan := make(chan krpc.FindNodeResponse)
-    getPeersChan := make(chan krpc.GetPeersResponse)
-    getPeersWithNodesChan := make(chan krpc.GetPeersResponseWithNodes)
-    announcePeerChan := make(chan krpc.AnnouncePeersResponse)
-
-    go handler.OnPing(pingChan)
-    go handler.OnFindNodes(findNodesChan)
-    go handler.OnGetPeers(getPeersChan)
-    go handler.OnGetPeersWithNodes(getPeersWithNodesChan)
-    go handler.OnAnnouncePeer(announcePeerChan)
-
-    n := datastructure.NewNodeID()
-    n2 := datastructure.NewNodeID()
+    n := ds.NewNodeID()
+    n2 := ds.NewNodeID()
 
     v := []string{
         "router.utorrent.com:6881",
@@ -56,9 +43,9 @@ func main() {
         return
     }
 
-    conn.Write(krpc.FindNodeRequest{}.Encode(krpc.NewRandomBytes(2), n, n2))
-    conn.Write(krpc.PingRequest{}.Encode(krpc.NewRandomBytes(2), n))
-    conn.Write(krpc.GetPeersRequest{}.Encode(krpc.NewRandomBytes(2), n, n2))
+    conn.Write(message.FindNodeRequest{}.Encode(message.NewRandomBytes(2), n, n2))
+    //conn.Write(message.PingRequest{}.Encode(message.NewRandomBytes(2), n))
+    //conn.Write(message.GetPeersRequest{}.Encode(message.NewRandomBytes(2), n, n2))
 
     _, _, err = conn.ReadFrom(buffer)
     if err != nil {
@@ -67,25 +54,8 @@ func main() {
     }
 
     fmt.Println(string(buffer), "\n")
-    network.Router(buffer)
 
-    _, _, err = conn.ReadFrom(buffer)
-    if err != nil {
-        fmt.Println("can't read", err.Error())
-        return
-    }
+    //dht := NewDHT(ds.NewNodeID())
 
-    fmt.Println(string(buffer), "\n")
-    network.Router(buffer)
-
-    _, _, err = conn.ReadFrom(buffer)
-    if err != nil {
-        fmt.Println("can't read", err.Error())
-        return
-    }
-
-    fmt.Println(string(buffer), "\n")
-    network.Router(buffer)
-
+    Router(buffer)
 }
-

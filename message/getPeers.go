@@ -1,7 +1,7 @@
-package krpc
+package message
 
 import (
-    "kademlia/datastructure"
+    ds "kademlia/datastructure"
 )
 
 type getPeers struct {
@@ -10,24 +10,24 @@ type getPeers struct {
 
 type GetPeersResponse struct {
     getPeers
-    Id     datastructure.NodeID
+    Id     ds.NodeID
     Token  RandomBytes
     Values []string
 }
 
 func (g *GetPeersResponse) Decode(t string, r Response) {
     g.T = NewRandomBytesFromString(t)
-    g.Id = datastructure.BytesToNodeID(r.Id)
+    g.Id.Decode(r.Id)
     g.Token = NewRandomBytesFromString(r.Token)
     g.Values = r.Values
 }
 
-func (_ GetPeersResponse) Encode(t RandomBytes, id datastructure.NodeID, token RandomBytes, values []string) []byte {
+func (_ GetPeersResponse) Encode(t RandomBytes, id ds.NodeID, token RandomBytes, values []string) []byte {
     q := ResponseMessage{}
     q.T = t.String()
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id":     id.Bytes(),
+        "id":     id.Encode(),
         "token":  token.String(),
         "values": values,
     }
@@ -37,27 +37,29 @@ func (_ GetPeersResponse) Encode(t RandomBytes, id datastructure.NodeID, token R
 
 type GetPeersResponseWithNodes struct {
     getPeers
-    Id    datastructure.NodeID
+    Id    ds.NodeID
     Token RandomBytes
-    Nodes []datastructure.NodeID
+    Nodes []ds.NodeID
 }
 
 func (g *GetPeersResponseWithNodes) Decode(t string, r Response) {
-    lengthNodeID := datastructure.BytesInNodeID
+    lengthNodeID := ds.BytesInNodeID
     numberOfNodes := len(r.Nodes) / lengthNodeID
     if numberOfNodes > 8 {
         numberOfNodes = 8
     }
     g.T = NewRandomBytesFromString(t)
-    g.Id = datastructure.BytesToNodeID(r.Id)
+    g.Id.Decode(r.Id)
     g.Token = NewRandomBytesFromString(r.Token)
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
-        g.Nodes = append(g.Nodes, datastructure.BytesToNodeID(r.Nodes[offset:(offset + lengthNodeID)]))
+        nid := ds.NodeID{}
+        nid.Decode(r.Nodes[offset:(offset + lengthNodeID)])
+        g.Nodes = append(g.Nodes, nid)
     }
 }
 
-func (_ GetPeersResponseWithNodes) Encode(t RandomBytes, id datastructure.NodeID, token RandomBytes, nodes []datastructure.NodeID) []byte {
+func (_ GetPeersResponseWithNodes) Encode(t RandomBytes, id ds.NodeID, token RandomBytes, nodes []ds.NodeID) []byte {
     var byteNodes []byte
     numberOfNodes := len(nodes)
     if numberOfNodes > 8 {
@@ -65,14 +67,14 @@ func (_ GetPeersResponseWithNodes) Encode(t RandomBytes, id datastructure.NodeID
     }
 
     for i := 0; i < numberOfNodes; i++ {
-        byteNodes = append(byteNodes, nodes[i].Bytes()...)
+        byteNodes = append(byteNodes, nodes[i].Encode()...)
     }
 
     q := ResponseMessage{}
     q.T = t.String()
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id":    id.Bytes(),
+        "id":    id.Encode(),
         "token": token.String(),
         "nodes": byteNodes,
     }
@@ -82,24 +84,24 @@ func (_ GetPeersResponseWithNodes) Encode(t RandomBytes, id datastructure.NodeID
 
 type GetPeersRequest struct {
     findNode
-    Id       datastructure.NodeID
-    InfoHash datastructure.NodeID
+    Id       ds.NodeID
+    InfoHash ds.NodeID
 }
 
 func (g *GetPeersRequest) Decode(t string, a Answer) {
     g.T = NewRandomBytesFromString(t)
-    g.Id = datastructure.BytesToNodeID(a.Id)
-    g.InfoHash = datastructure.BytesToNodeID(a.InfoHash)
+    g.Id.Decode(a.Id)
+    g.InfoHash.Decode(a.InfoHash)
 }
 
-func (_ GetPeersRequest) Encode(t RandomBytes, id, infoHash datastructure.NodeID) []byte {
+func (_ GetPeersRequest) Encode(t RandomBytes, id, infoHash ds.NodeID) []byte {
     q := RequestMessage{}
     q.T = t.String()
     q.Y = "q"
     q.Q = "get_peers"
     q.A = map[string]interface{}{
-        "id":        id.Bytes(),
-        "info_hash": infoHash.Bytes(),
+        "id":        id.Encode(),
+        "info_hash": infoHash.Encode(),
     }
 
     return MessageToBytes(q)

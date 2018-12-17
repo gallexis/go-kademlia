@@ -1,4 +1,4 @@
-package krpc
+package message
 
 import (
     "bytes"

@@ -1,12 +1,10 @@
-package krpc
+package message
 
-import (
-    "kademlia/datastructure"
-)
+import ds "kademlia/datastructure"
 
 type announcePeers struct {
     T  RandomBytes
-    Id datastructure.NodeID
+    Id ds.NodeID
 }
 
 type AnnouncePeersResponse struct {
@@ -15,15 +13,15 @@ type AnnouncePeersResponse struct {
 
 func (g *AnnouncePeersResponse) Decode(t string, r Response) {
     g.T = NewRandomBytesFromString(t)
-    g.Id = datastructure.BytesToNodeID(r.Id)
+    g.Id.Decode(r.Id)
 }
 
-func (_ AnnouncePeersResponse) Encode(t RandomBytes, id datastructure.NodeID) []byte {
+func (_ AnnouncePeersResponse) Encode(t RandomBytes, id ds.NodeID) []byte {
     q := ResponseMessage{}
     q.T = t.String()
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id": id.Bytes(),
+        "id": id.Encode(),
     }
 
     return MessageToBytes(q)
@@ -32,28 +30,28 @@ func (_ AnnouncePeersResponse) Encode(t RandomBytes, id datastructure.NodeID) []
 type AnnouncePeersRequest struct {
     announcePeers
     ImpliedPort int
-    InfoHash    datastructure.NodeID
+    InfoHash    ds.NodeID
     Port        int
-    Token       string
+    Token       RandomBytes
 }
 
 func (g *AnnouncePeersRequest) Decode(t string, a Answer) {
     g.T = NewRandomBytesFromString(t)
-    g.Id = datastructure.BytesToNodeID(a.Id)
+    g.Id.Decode(a.Id)
     g.ImpliedPort = a.ImpliedPort
-    g.InfoHash = datastructure.BytesToNodeID(a.InfoHash)
+    g.InfoHash.Decode(a.InfoHash)
     g.Port = a.Port
-    g.Token = string(a.Token)
+    g.Token = NewRandomBytesFromString(a.Token)
 }
 
-func (_ AnnouncePeersRequest) Encode(t, token RandomBytes, id, infoHash datastructure.NodeID, impliedPort, port int) []byte {
+func (_ AnnouncePeersRequest) Encode(t, token RandomBytes, id, infoHash ds.NodeID, impliedPort, port int) []byte {
     q := RequestMessage{}
     q.T = t.String()
     q.Y = "q"
     q.A = map[string]interface{}{
-        "id":           id.Bytes(),
+        "id":           id.Encode(),
         "implied_port": impliedPort,
-        "info_hash":    infoHash.Bytes(),
+        "info_hash":    infoHash.Encode(),
         "port":         port,
         "token":        token.String(),
     }
