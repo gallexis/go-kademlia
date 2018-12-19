@@ -1,7 +1,7 @@
 package main
 
 import (
-    "kademlia/message"
+    "fmt"
     "math/rand"
     "time"
 )
@@ -12,11 +12,10 @@ func init() {
 
 func main() {
     dht := NewDHT()
-    go dht.Receiver()
     dht.Bootstrap(dht.bootstrapNodes[0])
-
-    dht.Send(message.PingRequest{}.Encode(message.NewRandomBytes(2), dht.nodeID), "74.69.68.188", 40107)
-    dht.Send(message.PingRequest{}.Encode(message.NewRandomBytes(2), dht.nodeID), "177.16.122.194", 22440)
+    go dht.Receiver()
+    dht.PopulateRT()
 
     dht.routingTable.Display()
+    fmt.Scanln()
 }

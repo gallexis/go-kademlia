@@ -12,9 +12,10 @@ type DHT struct {
     nodeID         ds.NodeID
     routingTable   ds.RoutingTable
     handshakePool  map[string]time.Time
+    pingPool       map[string]chan bool
     conn           *net.UDPConn
     bootstrapNodes []string
-    port string
+    port           string
     //peerstore
 }
 
@@ -41,8 +42,8 @@ func NewCustomDHT(nid ds.NodeID, bootstrapNodes []string, conn *net.UDPConn) DHT
         nodeID:         nid,
         routingTable:   ds.NewRoutingTable(nid),
         bootstrapNodes: bootstrapNodes,
-        conn: conn,
-        port: "38568",
+        conn:           conn,
+        port:           "38568",
     }
 }
 
@@ -66,12 +67,14 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
         return false
     }
 
+    // Send FindNode request
     tx := message.NewRandomBytes(2)
     _, err = conn.Write(message.FindNodeRequest{}.Encode(tx, d.nodeID, d.nodeID))
-    if err != nil{
+    if err != nil {
         return false
     }
 
+    // GetResponse
     buffer := make([]byte, 2048)
     _, _, err = conn.ReadFrom(buffer)
     if err != nil {
@@ -79,10 +82,49 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
         return false
     }
 
-    d.Router(buffer)
+    // Assert response if findNodeResponse
+    g := message.BytesToMessage(buffer)
+    if g.Y != "r" || len(g.R.Nodes) <= 0 {
+        fmt.Println("Not a findNode Response")
+        return false
+    }
+
+    // Decode FindNodeResponse
+    findNodes := message.FindNodeResponse{}
+    findNodes.Decode(g.T, g.R)
+
+    // Update routing table with nodes received
+    for _, c := range findNodes.Contact {
+        d.routingTable.Insert(c, func(chan bool){})
+    }
 
     return true
 }
+
+func (d *DHT) PopulateRT(){
+    smallest := 159
+
+    for {
+        time.Sleep(time.Second * 10)
+        randomContacts := d.routingTable.GetClosest()
+        newSmallest := d.routingTable.GetLatestBucketFilled()
+
+        if newSmallest >= smallest{
+            fmt.Println("exit")
+            break
+        } else{
+            smallest = newSmallest
+        }
+
+        for _, contact := range randomContacts{
+            tx := message.NewRandomBytes(2)
+            d.Send(message.FindNodeRequest{}.Encode(tx, d.nodeID, d.nodeID), contact)
+        }
+
+        fmt.Println(">>> smallest:", smallest)
+    }
+}
+
 
 func (d *DHT) Receiver() {
     buffer := make([]byte, 1024)
@@ -97,10 +139,10 @@ func (d *DHT) Receiver() {
     }
 }
 
-func (d *DHT) Send(data []byte, ip string, port int){
-    destAddr := net.UDPAddr{IP: net.ParseIP(ip), Port: port}
+func (d *DHT) Send(data []byte, contact ds.Contact) {
+    destAddr := net.UDPAddr{IP: contact.IP, Port: int(contact.Port)}
     _, err := d.conn.WriteToUDP(data, &destAddr)
-    if err != nil{
+    if err != nil {
         fmt.Println(err)
     }
 }
@@ -110,10 +152,16 @@ func (d *DHT) OnAnnouncePeerResponse(announcePeer message.AnnouncePeersResponse)
 }
 
 func (d *DHT) OnFindNodesResponse(findNodes message.FindNodeResponse) {
-    fmt.Printf("findNodes: %+v \n", findNodes)
+    //fmt.Printf("findNodes: %+v \n", findNodes)
+    fmt.Printf("findNodes\n")
+
     for _, c := range findNodes.Contact {
-        d.routingTable.Insert(c)
+        d.routingTable.Insert(c, d.PingNode)
     }
+
+    d.routingTable.Display()
+    fmt.Println("-------------------")
+
 }
 
 func (d *DHT) OnGetPeersResponse(getPeers message.GetPeersResponse) {
@@ -125,7 +173,19 @@ func (d *DHT) OnGetPeersWithNodesResponse(getPeersWithNodes message.GetPeersResp
 }
 
 func (d *DHT) OnPingResponse(ping message.PingResponse) {
-    fmt.Printf("ping: %+v \n", ping)
+    fmt.Printf("OnPingResponse: %+v \n", ping)
+    if c, ok := d.pingPool[ping.T.String()]; ok {
+        c <- true
+    }
+}
+
+func (d *DHT) PingNode(pingChan chan bool) {
+    tx := message.NewRandomBytes(2)
+    _, err := d.conn.Write(message.PingRequest{}.Encode(tx, d.nodeID))
+    if err != nil {
+        return
+    }
+    d.pingPool[tx.String()] = pingChan
 }
 
 func (d *DHT) Router(data []byte) {
@@ -137,18 +197,22 @@ func (d *DHT) Router(data []byte) {
         case "ping":
             ping := message.PingRequest{}
             ping.Decode(g.T, g.A.Id)
+            fmt.Println("PingRequest")
 
         case "find_node":
             findNodesRequest := message.FindNodeRequest{}
             findNodesRequest.Decode(g.T, g.A)
+            fmt.Println("FindNodeRequest")
 
         case "get_peers":
             getPeers := message.GetPeersRequest{}
             getPeers.Decode(g.T, g.A)
+            fmt.Println("GetPeersRequest")
 
         case "announce_peer":
             announcePeers := message.AnnouncePeersRequest{}
             announcePeers.Decode(g.T, g.A)
+            fmt.Println("AnnouncePeersRequest")
 
         default:
             panic("q")
