@@ -1,9 +1,8 @@
 package datastructure
 
 import (
-    "fmt"
     "github.com/hashicorp/golang-lru"
-    "log"
+    log "github.com/sirupsen/logrus"
     "math/rand"
     "sync"
     "time"
@@ -47,10 +46,10 @@ func (kb *KBucket) Insert(newContact Contact, pingNode func(chan bool)) {
         select {
         case <-tick:
             kb.Contacts.Add(newContact.NodeID, newContact) //Add will remove oldestContact then add newContact
-            //fmt.Println("add new")
+            //log.Println("add new")
         case <-pingChan:
             kb.Contacts.Add(oldestNodeID, oldestContact) // if the oldest answers, put it back to the tail
-            fmt.Println("add old")
+            log.Info("add old")
         }
     }
 }

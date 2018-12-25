@@ -3,9 +3,8 @@ package message
 import (
     "bytes"
     "encoding/hex"
-    "fmt"
     "github.com/zeebo/bencode"
-    "log"
+    log "github.com/sirupsen/logrus"
     "math/rand"
 )
 
@@ -15,7 +14,7 @@ type Response struct {
     Id     []byte   `bencode:"id"`
     Nodes  []byte   `bencode:"nodes"`
     Nodes6 []byte   `bencode:"nodes6"`
-    Token  string   `bencode:"token"`
+    Token  []byte   `bencode:"token"`
 }
 
 type Answer struct {
@@ -23,7 +22,7 @@ type Answer struct {
     Target      []byte `bencode:"target"`
     InfoHash    []byte `bencode:"info_hash"`
     Port        int    `bencode:"port"`
-    Token       string `bencode:"token"`
+    Token       []byte `bencode:"token"`
     ImpliedPort int    `bencode:"implied_port"`
 }
 
@@ -53,11 +52,7 @@ type ResponseMessage struct {
 func MessageToBytes(message interface{}) []byte{
     buffer, err := bencode.EncodeBytes(message)
     if err != nil {
-        panic(err)
-    }
-
-    if err != nil {
-        log.Println(err.Error())
+        log.Panic(err)
     }
 
     return buffer
@@ -66,7 +61,7 @@ func MessageToBytes(message interface{}) []byte{
 func BytesToMessage(data []byte) (g GenericMessage){
     decoder := bencode.NewDecoder(bytes.NewBuffer(data))
     if err := decoder.Decode(&g); err != nil {
-        panic(err)
+        log.Panic(err)
     }
     return
 }
@@ -81,7 +76,7 @@ func (t RandomBytes) String() string {
 func NewRandomBytes(n int) RandomBytes {
     token := make([]byte, n)
     if _, err := rand.Read(token); err != nil {
-        fmt.Printf("Failed to generate NewRandomBytes: %v", err)
+        log.Panicf("Failed to generate NewRandomBytes: %v", err)
     }
     return token
 }
@@ -90,7 +85,8 @@ func NewRandomBytesFromString(token string) RandomBytes {
     t := RandomBytes{}
     t, err := hex.DecodeString(token)
     if err != nil {
-        fmt.Printf("Error when decoding from string: %v", err)
+        log.Panicf("Error when decoding from string: %v", err)
     }
     return t
 }
+

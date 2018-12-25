@@ -73,7 +73,7 @@ func TestGet_getBucketNumber(t *testing.T) {
 func TestNodeID_String(t *testing.T) {
 	n := ds.FakeNodeID(0xff)
 	n[0] = 0x00
-	toString := fmt.Sprint(n)
+	toString := log.Sprint(n)
 	if toString != "00ffffffffffffffffffffffffffffffffffffff" {
 		t.Error("Error when converting node ID to string")
 	}

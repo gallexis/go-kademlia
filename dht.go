@@ -1,7 +1,7 @@
 package main
 
 import (
-    "fmt"
+    log "github.com/sirupsen/logrus"
     ds "kademlia/datastructure"
     "kademlia/message"
     "net"
@@ -16,7 +16,8 @@ type DHT struct {
     conn           *net.UDPConn
     bootstrapNodes []string
     port           string
-    //peerstore
+    peerStore      ds.PeerStore
+    getPeerPool    map[string]func()
 }
 
 func NewDHT() DHT {
@@ -31,7 +32,7 @@ func NewDHT() DHT {
     }
     conn, err := net.ListenUDP("udp", &addr)
     if err != nil {
-        fmt.Printf("Some error %v\n", err)
+        log.Panicf("Some error %v", err)
     }
 
     return NewCustomDHT(nid, bootstrapNodes, conn)
@@ -50,27 +51,25 @@ func NewCustomDHT(nid ds.NodeID, bootstrapNodes []string, conn *net.UDPConn) DHT
 func (d *DHT) Bootstrap(bootstrapNode string) bool {
     raddr, err := net.ResolveUDPAddr("udp", bootstrapNode)
     if err != nil {
-        fmt.Println("can't resolve")
-        return false
+        log.Panic("Can't resolve")
     }
 
     conn, err := net.DialUDP("udp", nil, raddr)
     if err != nil {
-        fmt.Println("can't dial")
-        return false
+        log.Panic("can't dial")
     }
 
     deadline := time.Now().Add(time.Second * 10)
     err = conn.SetReadDeadline(deadline)
     if err != nil {
-        fmt.Println("too long")
-        return false
+        log.Panic("too long")
     }
 
     // Send FindNode request
     tx := message.NewRandomBytes(2)
     _, err = conn.Write(message.FindNodeRequest{}.Encode(tx, d.nodeID, d.nodeID))
     if err != nil {
+        log.Panic("NewRandomBytes", err)
         return false
     }
 
@@ -78,15 +77,13 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
     buffer := make([]byte, 2048)
     _, _, err = conn.ReadFrom(buffer)
     if err != nil {
-        fmt.Println("can't read", err.Error())
-        return false
+        log.Panic("can't read", err.Error())
     }
 
     // Assert response if findNodeResponse
     g := message.BytesToMessage(buffer)
     if g.Y != "r" || len(g.R.Nodes) <= 0 {
-        fmt.Println("Not a findNode Response")
-        return false
+        log.Panic("Not a findNode Response")
     }
 
     // Decode FindNodeResponse
@@ -95,36 +92,35 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
 
     // Update routing table with nodes received
     for _, c := range findNodes.Contact {
-        d.routingTable.Insert(c, func(chan bool){})
+        d.routingTable.Insert(c, func(chan bool) {})
     }
 
     return true
 }
 
-func (d *DHT) PopulateRT(){
+func (d *DHT) PopulateRT() {
     smallest := 159
 
     for {
-        time.Sleep(time.Second * 10)
         randomContacts := d.routingTable.GetClosest()
         newSmallest := d.routingTable.GetLatestBucketFilled()
 
-        if newSmallest >= smallest{
-            fmt.Println("exit")
-            break
-        } else{
-            smallest = newSmallest
-        }
-
-        for _, contact := range randomContacts{
+        for _, contact := range randomContacts {
             tx := message.NewRandomBytes(2)
             d.Send(message.FindNodeRequest{}.Encode(tx, d.nodeID, d.nodeID), contact)
         }
 
-        fmt.Println(">>> smallest:", smallest)
+        if newSmallest >= smallest {
+            log.Info("Exit PopulateRT")
+            break
+        } else {
+            smallest = newSmallest
+        }
+
+        d.routingTable.Display()
+        time.Sleep(time.Second * 10)
     }
 }
-
 
 func (d *DHT) Receiver() {
     buffer := make([]byte, 1024)
@@ -132,7 +128,8 @@ func (d *DHT) Receiver() {
     for {
         n, _, err := d.conn.ReadFromUDP(buffer)
         if err != nil {
-            fmt.Printf("Some error  %v", err)
+            log.Printf("Some error %v", err)
+            time.Sleep(time.Second * 1)
             continue
         }
         d.Router(buffer[:n])
@@ -143,37 +140,32 @@ func (d *DHT) Send(data []byte, contact ds.Contact) {
     destAddr := net.UDPAddr{IP: contact.IP, Port: int(contact.Port)}
     _, err := d.conn.WriteToUDP(data, &destAddr)
     if err != nil {
-        fmt.Println(err)
+        log.Info(">>>>", err.Error())
     }
 }
 
 func (d *DHT) OnAnnouncePeerResponse(announcePeer message.AnnouncePeersResponse) {
-    fmt.Println(announcePeer)
+    log.Info(announcePeer)
 }
 
 func (d *DHT) OnFindNodesResponse(findNodes message.FindNodeResponse) {
-    //fmt.Printf("findNodes: %+v \n", findNodes)
-    fmt.Printf("findNodes\n")
+    log.Infof("findNodes: %+v", findNodes)
 
     for _, c := range findNodes.Contact {
         d.routingTable.Insert(c, d.PingNode)
     }
-
-    d.routingTable.Display()
-    fmt.Println("-------------------")
-
 }
 
 func (d *DHT) OnGetPeersResponse(getPeers message.GetPeersResponse) {
-    fmt.Printf("getPeers: %+v \n", getPeers)
+    log.Infof("getPeers: %+v", getPeers)
 }
 
 func (d *DHT) OnGetPeersWithNodesResponse(getPeersWithNodes message.GetPeersResponseWithNodes) {
-    fmt.Printf("getPeersWithNodes: %+v \n", getPeersWithNodes)
+    log.Infof("getPeersWithNodes: %+v", getPeersWithNodes)
 }
 
 func (d *DHT) OnPingResponse(ping message.PingResponse) {
-    fmt.Printf("OnPingResponse: %+v \n", ping)
+    log.Infof("OnPingResponse: %+v", d.pingPool)
     if c, ok := d.pingPool[ping.T.String()]; ok {
         c <- true
     }
@@ -190,6 +182,8 @@ func (d *DHT) PingNode(pingChan chan bool) {
 
 func (d *DHT) Router(data []byte) {
     g := message.BytesToMessage(data)
+    log.Infof("Router: %+v ", g)
+
     switch g.Y {
     case "q":
 
@@ -197,36 +191,36 @@ func (d *DHT) Router(data []byte) {
         case "ping":
             ping := message.PingRequest{}
             ping.Decode(g.T, g.A.Id)
-            fmt.Println("PingRequest")
+            log.Info("PingRequest")
 
         case "find_node":
             findNodesRequest := message.FindNodeRequest{}
             findNodesRequest.Decode(g.T, g.A)
-            fmt.Println("FindNodeRequest")
+            log.Info("FindNodeRequest")
 
         case "get_peers":
             getPeers := message.GetPeersRequest{}
             getPeers.Decode(g.T, g.A)
-            fmt.Println("GetPeersRequest")
+            log.Info("GetPeersRequest")
 
         case "announce_peer":
             announcePeers := message.AnnouncePeersRequest{}
             announcePeers.Decode(g.T, g.A)
-            fmt.Println("AnnouncePeersRequest")
+            log.Info("AnnouncePeersRequest")
 
         default:
-            panic("q")
+            log.Panic("q")
         }
 
     case "r":
 
         switch {
-        case len(g.R.Values) > 0 && g.R.Token != "":
+        case len(g.R.Values) > 0 && len(g.R.Token) > 0:
             getPeers := message.GetPeersResponse{}
             getPeers.Decode(g.T, g.R)
             d.OnGetPeersResponse(getPeers)
 
-        case len(g.R.Nodes) > 0 && g.R.Token != "":
+        case len(g.R.Nodes) > 0 && len(g.R.Token) > 0:
             getPeers := message.GetPeersResponseWithNodes{}
             getPeers.Decode(g.T, g.R)
             d.OnGetPeersWithNodesResponse(getPeers)
@@ -246,15 +240,15 @@ func (d *DHT) Router(data []byte) {
 
                 announcePeers := AnnouncePeersResponse{}
                 announcePeers.Decode(g.RandomBytes, g.R)
-                fmt.Println(announcePeers)
+                log.Println(announcePeers)
              */
 
         default:
-            panic("r")
+            log.Panic("r")
         }
 
     case "e":
-        fmt.Println("Error:", g.E)
+        log.Info("Error:", g.E)
 
     }
 }

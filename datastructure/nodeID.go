@@ -49,6 +49,16 @@ func (n NodeID) XOR(other NodeID) (newNodeID NodeID) {
 	return
 }
 
+func NewNodeIDFromString(hash string) (n NodeID) {
+	c,err:= hex.DecodeString(hash)
+	if err != nil{
+
+	}
+	for i := 0; i < BytesInNodeID; i++ {
+		n[i] = c[i]
+	}
+	return
+}
 func NewNodeID() (n NodeID) {
 	for i := 0; i < BytesInNodeID; i++ {
 		n[i] = byte(rand.Intn(256))

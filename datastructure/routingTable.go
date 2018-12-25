@@ -1,7 +1,7 @@
 package datastructure
 
 import (
-    "fmt"
+    log "github.com/sirupsen/logrus"
     "math"
 )
 
@@ -37,15 +37,17 @@ func NewRoutingTableWithDetails(nodeID NodeID, k int, alpha int) RoutingTable {
 }
 
 func (rt *RoutingTable) Display() {
+    log.Debug("----Display RT--------------------------")
     for i, b := range rt.KBuckets {
         if b.Contacts.Len() > 0 {
-            fmt.Println(159-i, ": ", b.Contacts.Len())
+            log.Debug(159-i, ": ", b.Contacts.Len())
         }
     }
+    log.Debug("----------------------------------------")
 }
 
 func (rt *RoutingTable) DisplayBucket(bucketNumber int) {
-    fmt.Println(159-bucketNumber, ": ", rt.KBuckets[bucketNumber].Contacts.Len())
+    log.Debug(159-bucketNumber, ": ", rt.KBuckets[bucketNumber].Contacts.Len())
 }
 
 func (rt *RoutingTable) Insert(newContact Contact, pingNode func(chan bool)) {
@@ -107,8 +109,6 @@ func (rt *RoutingTable) GetLatestBucketFilled() int {
     for i := 0; i < K; i++ {
         if rt.KBuckets[i].Contacts.Len() > 0 {
             last = 159 - i
-        } else {
-            break
         }
     }
     return last

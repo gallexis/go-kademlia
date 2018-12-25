@@ -41,7 +41,7 @@ func (g *AnnouncePeersRequest) Decode(t string, a Answer) {
     g.ImpliedPort = a.ImpliedPort
     g.InfoHash.Decode(a.InfoHash)
     g.Port = a.Port
-    g.Token = NewRandomBytesFromString(a.Token)
+    g.Token = a.Token
 }
 
 func (_ AnnouncePeersRequest) Encode(t, token RandomBytes, id, infoHash ds.NodeID, impliedPort, port int) []byte {

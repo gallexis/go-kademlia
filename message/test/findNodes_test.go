@@ -1,7 +1,7 @@
 package test
 
 import (
-    "kademlia/datastructure"
+    ds "kademlia/datastructure"
     "kademlia/message"
     "testing"
 )

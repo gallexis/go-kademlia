@@ -18,7 +18,7 @@ type GetPeersResponse struct {
 func (g *GetPeersResponse) Decode(t string, r Response) {
     g.T = NewRandomBytesFromString(t)
     g.Id.Decode(r.Id)
-    g.Token = NewRandomBytesFromString(r.Token)
+    g.Token = r.Token
     g.Values = r.Values
 }
 
@@ -50,7 +50,7 @@ func (g *GetPeersResponseWithNodes) Decode(t string, r Response) {
     }
     g.T = NewRandomBytesFromString(t)
     g.Id.Decode(r.Id)
-    g.Token = NewRandomBytesFromString(r.Token)
+    g.Token = r.Token
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
         nid := ds.NodeID{}
