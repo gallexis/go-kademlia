@@ -2,58 +2,55 @@ package message
 
 import ds "kademlia/datastructure"
 
-type announcePeers struct {
-    T  RandomBytes
-    Id ds.NodeID
-}
-
 type AnnouncePeersResponse struct {
-    announcePeers
+    T  TransactionId
+    Id ds.NodeId
 }
 
-func (g *AnnouncePeersResponse) Decode(t string, r Response) {
-    g.T = NewRandomBytesFromString(t)
-    g.Id.Decode(r.Id)
+func (a *AnnouncePeersResponse) Decode(t string, r Response) {
+    a.T = NewTransactionIdFromString(t)
+    a.Id.Decode(r.Id)
 }
 
-func (_ AnnouncePeersResponse) Encode(t RandomBytes, id ds.NodeID) []byte {
+func (a AnnouncePeersResponse) Encode() []byte {
     q := ResponseMessage{}
-    q.T = t.String()
+    q.T = a.T.String()
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id": id.Encode(),
+        "id": a.Id.Encode(),
     }
 
     return MessageToBytes(q)
 }
 
 type AnnouncePeersRequest struct {
-    announcePeers
+    T  TransactionId
+    Id ds.NodeId
     ImpliedPort int
-    InfoHash    ds.NodeID
+    InfoHash    ds.NodeId
     Port        int
-    Token       RandomBytes
+    Token       Token
 }
 
-func (g *AnnouncePeersRequest) Decode(t string, a Answer) {
-    g.T = NewRandomBytesFromString(t)
-    g.Id.Decode(a.Id)
-    g.ImpliedPort = a.ImpliedPort
-    g.InfoHash.Decode(a.InfoHash)
-    g.Port = a.Port
-    g.Token = a.Token
+func (a *AnnouncePeersRequest) Decode(t string, answer Answer) {
+    a.T = NewTransactionIdFromString(t)
+    a.Id.Decode(answer.Id)
+    a.ImpliedPort = answer.ImpliedPort
+    a.InfoHash.Decode(answer.InfoHash)
+    a.Port = answer.Port
+    a.Token = answer.Token
 }
 
-func (_ AnnouncePeersRequest) Encode(t, token RandomBytes, id, infoHash ds.NodeID, impliedPort, port int) []byte {
+func (a AnnouncePeersRequest) Encode() []byte {
     q := RequestMessage{}
-    q.T = t.String()
+    q.T = a.T.String()
     q.Y = "q"
     q.A = map[string]interface{}{
-        "id":           id.Encode(),
-        "implied_port": impliedPort,
-        "info_hash":    infoHash.Encode(),
-        "port":         port,
-        "token":        token.String(),
+        "id":           a.Id.Encode(),
+        "implied_port": a.ImpliedPort,
+        "info_hash":    a.InfoHash.Encode(),
+        "port":         a.Port,
+        "token":        a.Token.String(),
     }
 
     return MessageToBytes(q)

@@ -13,8 +13,8 @@ import (
 // 0b1000010 = 0x42
 // 0b1101101 = 0x6D
 
-func fakeRandomNodeID() ds.NodeID {
-	var n ds.NodeID
+func fakeRandomNodeID() ds.NodeId {
+	var n ds.NodeId
 	for i := 0; i < ds.BytesInNodeID; i++ {
 		n[i] = uint8(rand.Intn(255))
 	}
@@ -37,8 +37,8 @@ func TestNewKBucket(t *testing.T) {
 		t.Error("K is incorrect.")
 	}
 
-	if kb.Contacts.Len() != 0 {
-		t.Error("Contacts' length must be 0.")
+	if kb.Nodes.Len() != 0 {
+		t.Error("Nodes' length must be 0.")
 	}
 
 }
@@ -84,14 +84,14 @@ func TestInsertKB_full(t *testing.T) {
 	kb.Insert(c2)
 	kb.Insert(c3)
 
-	if kb.Contacts.Len() != k {
-		t.Error("Contacts length must be ", k)
+	if kb.Nodes.Len() != k {
+		t.Error("Nodes length must be ", k)
 	}
 
 	// assert node2 & node3 are the only one in the list
-	nodeIDs := kb.Contacts.Keys()
-	node2 := nodeIDs[0].(ds.NodeID)
-	node3 := nodeIDs[1].(ds.NodeID)
+	nodeIDs := kb.Nodes.Keys()
+	node2 := nodeIDs[0].(ds.NodeId)
+	node3 := nodeIDs[1].(ds.NodeId)
 
 	if c2.NodeID != node2 {
 		t.Error("c2.nodeID != node2", c2.NodeID, node2)
@@ -108,31 +108,31 @@ func TestInsertKB_notFull(t *testing.T) {
 	c1 := newRandomContact()
 	c2 := newRandomContact()
 
-	if kb.Contacts.Len() != 0 {
-		t.Error("Contacts length must be 0.")
+	if kb.Nodes.Len() != 0 {
+		t.Error("Nodes length must be 0.")
 	}
 
 	kb.Insert(c1)
-	if kb.Contacts.Len() != 1 {
-		t.Error("Contacts length must be 1.")
+	if kb.Nodes.Len() != 1 {
+		t.Error("Nodes length must be 1.")
 	}
 
 	kb.Insert(c2)
-	if kb.Contacts.Len() != 2 {
-		t.Error("Contacts length must be 2.")
+	if kb.Nodes.Len() != 2 {
+		t.Error("Nodes length must be 2.")
 	}
 
 	// test If c1 & C2 correctly inserted
-	nodes := kb.Contacts.Keys()
-	node1 := nodes[0].(ds.NodeID)
-	node2 := nodes[1].(ds.NodeID)
+	nodes := kb.Nodes.Keys()
+	node1 := nodes[0].(ds.NodeId)
+	node2 := nodes[1].(ds.NodeId)
 
 	if c1.NodeID != node1 {
-		t.Error("c1.NodeID != node1")
+		t.Error("c1.NodeId != node1")
 	}
 
 	if c2.NodeID != node2 {
-		t.Error("c2.NodeID != node2")
+		t.Error("c2.NodeId != node2")
 	}
 }
 
@@ -142,27 +142,27 @@ func TestInsertKB_update(t *testing.T) {
 	c1 := newRandomContact()
 	c2 := newRandomContact()
 
-	if kb.Contacts.Len() != 0 {
-		t.Error("Contacts length must be 0.")
+	if kb.Nodes.Len() != 0 {
+		t.Error("Nodes length must be 0.")
 	}
 
 	kb.Insert(c1)
 	kb.Insert(c2)
 	kb.Insert(c1) // reinsert c1
 
-	if kb.Contacts.Len() != 2 {
-		t.Error("Contacts length must be 2.")
+	if kb.Nodes.Len() != 2 {
+		t.Error("Nodes length must be 2.")
 	}
 
-	nodes := kb.Contacts.Keys()
-	node1 := nodes[1].(ds.NodeID)
-	node2 := nodes[0].(ds.NodeID)
+	nodes := kb.Nodes.Keys()
+	node1 := nodes[1].(ds.NodeId)
+	node2 := nodes[0].(ds.NodeId)
 
 	if c1.NodeID != node1 {
-		t.Error("c1.NodeID != node1")
+		t.Error("c1.NodeId != node1")
 	}
 
 	if c2.NodeID != node2 {
-		t.Error("c2.NodeID != node2")
+		t.Error("c2.NodeId != node2")
 	}
 }

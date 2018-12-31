@@ -8,7 +8,7 @@ import (
 
 func TestAnnouncePeerResponse(t *testing.T) {
     randomNodeID := ds.FakeNodeID(0x12)
-    tx := message.NewRandomBytesFromString("aaeebb")
+    tx := message.NewTransactionIdFromString("aaeebb")
     encoded := message.AnnouncePeersResponse{}.Encode(tx, randomNodeID)
     g := message.BytesToMessage(encoded)
     response := message.AnnouncePeersResponse{}
@@ -22,8 +22,8 @@ func TestAnnouncePeerResponse(t *testing.T) {
 func TestAnnouncePeerRequest(t *testing.T) {
     randomNodeID := ds.FakeNodeID(0x12)
     infohash := ds.FakeNodeID(0xF4)
-    tx := message.NewRandomBytesFromString("aaeebb")
-    token := message.NewRandomBytesFromString("bbaaee")
+    tx := message.NewTransactionIdFromString("aaeebb")
+    token := message.NewTransactionIdFromString("bbaaee")
     impliedPort := 1
     port := 1337
     encoded := message.AnnouncePeersRequest{}.Encode(tx, token, randomNodeID, infohash, impliedPort, port)

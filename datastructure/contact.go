@@ -8,7 +8,7 @@ import (
 type Contact struct {
 	IP     net.IP
 	Port   uint16
-	NodeID NodeID
+	NodeID NodeId
 }
 
 func (c *Contact) Decode(data []byte){

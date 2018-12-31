@@ -3,8 +3,8 @@ package message
 import (
     "bytes"
     "encoding/hex"
-    "github.com/zeebo/bencode"
     log "github.com/sirupsen/logrus"
+    "github.com/zeebo/bencode"
     "math/rand"
 )
 
@@ -37,19 +37,19 @@ type GenericMessage struct {
 
 // GENERIC SEND
 type RequestMessage struct {
-    T string            `bencode:"t"`
+    T string                 `bencode:"t"`
     Y string                 `bencode:"y"`
     Q string                 `bencode:"q"`
     A map[string]interface{} `bencode:"a"`
 }
 
 type ResponseMessage struct {
-    T string            `bencode:"t"`
+    T string                 `bencode:"t"`
     Y string                 `bencode:"y"`
     R map[string]interface{} `bencode:"r"`
 }
 
-func MessageToBytes(message interface{}) []byte{
+func MessageToBytes(message interface{}) []byte {
     buffer, err := bencode.EncodeBytes(message)
     if err != nil {
         log.Panic(err)
@@ -58,7 +58,7 @@ func MessageToBytes(message interface{}) []byte{
     return buffer
 }
 
-func BytesToMessage(data []byte) (g GenericMessage){
+func BytesToMessage(data []byte) (g GenericMessage) {
     decoder := bencode.NewDecoder(bytes.NewBuffer(data))
     if err := decoder.Decode(&g); err != nil {
         log.Panic(err)
@@ -66,27 +66,27 @@ func BytesToMessage(data []byte) (g GenericMessage){
     return
 }
 
+type TransactionId []byte
 
-type RandomBytes []byte
-
-func (t RandomBytes) String() string {
+func (t TransactionId) String() string {
     return hex.EncodeToString([]byte(t))
 }
 
-func NewRandomBytes(n int) RandomBytes {
-    token := make([]byte, n)
-    if _, err := rand.Read(token); err != nil {
-        log.Panicf("Failed to generate NewRandomBytes: %v", err)
+func NewTransactionId() TransactionId {
+    tx := make([]byte, 2)
+    if _, err := rand.Read(tx); err != nil {
+        log.Panicf("Failed to generate NewTransactionId: %v", err)
     }
-    return token
+    return tx
 }
 
-func NewRandomBytesFromString(token string) RandomBytes {
-    t := RandomBytes{}
-    t, err := hex.DecodeString(token)
+func NewTransactionIdFromString(tx string) TransactionId {
+    t := TransactionId{}
+    t, err := hex.DecodeString(tx)
     if err != nil {
         log.Panicf("Error when decoding from string: %v", err)
     }
     return t
 }
 
+type Token = TransactionId

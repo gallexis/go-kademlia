@@ -4,42 +4,38 @@ import (
     ds "kademlia/datastructure"
 )
 
-type getPeers struct {
-    T RandomBytes
-}
-
 type GetPeersResponse struct {
-    getPeers
-    Id     ds.NodeID
-    Token  RandomBytes
+    T TransactionId
+    Id     ds.NodeId
+    Token  Token
     Values []string
 }
 
 func (g *GetPeersResponse) Decode(t string, r Response) {
-    g.T = NewRandomBytesFromString(t)
+    g.T = NewTransactionIdFromString(t)
     g.Id.Decode(r.Id)
     g.Token = r.Token
     g.Values = r.Values
 }
 
-func (_ GetPeersResponse) Encode(t RandomBytes, id ds.NodeID, token RandomBytes, values []string) []byte {
+func (g GetPeersResponse) Encode() []byte {
     q := ResponseMessage{}
-    q.T = t.String()
+    q.T = g.T.String()
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id":     id.Encode(),
-        "token":  token.String(),
-        "values": values,
+        "id":     g.Id.Encode(),
+        "token":  g.Token.String(),
+        "values": g.Values,
     }
 
     return MessageToBytes(q)
 }
 
 type GetPeersResponseWithNodes struct {
-    getPeers
-    Id    ds.NodeID
-    Token RandomBytes
-    Nodes []ds.NodeID
+    T TransactionId
+    Id    ds.NodeId
+    Token Token
+    Nodes []ds.NodeId
 }
 
 func (g *GetPeersResponseWithNodes) Decode(t string, r Response) {
@@ -48,34 +44,34 @@ func (g *GetPeersResponseWithNodes) Decode(t string, r Response) {
     if numberOfNodes > 8 {
         numberOfNodes = 8
     }
-    g.T = NewRandomBytesFromString(t)
+    g.T = NewTransactionIdFromString(t)
     g.Id.Decode(r.Id)
     g.Token = r.Token
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
-        nid := ds.NodeID{}
+        nid := ds.NodeId{}
         nid.Decode(r.Nodes[offset:(offset + lengthNodeID)])
         g.Nodes = append(g.Nodes, nid)
     }
 }
 
-func (_ GetPeersResponseWithNodes) Encode(t RandomBytes, id ds.NodeID, token RandomBytes, nodes []ds.NodeID) []byte {
+func (g GetPeersResponseWithNodes) Encode() []byte {
     var byteNodes []byte
-    numberOfNodes := len(nodes)
+    numberOfNodes := len(g.Nodes)
     if numberOfNodes > 8 {
         numberOfNodes = 8
     }
 
     for i := 0; i < numberOfNodes; i++ {
-        byteNodes = append(byteNodes, nodes[i].Encode()...)
+        byteNodes = append(byteNodes, g.Nodes[i].Encode()...)
     }
 
     q := ResponseMessage{}
-    q.T = t.String()
+    q.T = g.T.String()
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id":    id.Encode(),
-        "token": token.String(),
+        "id":    g.Id.Encode(),
+        "token": g.Token.String(),
         "nodes": byteNodes,
     }
 
@@ -83,25 +79,25 @@ func (_ GetPeersResponseWithNodes) Encode(t RandomBytes, id ds.NodeID, token Ran
 }
 
 type GetPeersRequest struct {
-    findNode
-    Id       ds.NodeID
-    InfoHash ds.NodeID
+    T TransactionId
+    Id       ds.NodeId
+    InfoHash ds.InfoHash
 }
 
 func (g *GetPeersRequest) Decode(t string, a Answer) {
-    g.T = NewRandomBytesFromString(t)
+    g.T = NewTransactionIdFromString(t)
     g.Id.Decode(a.Id)
     g.InfoHash.Decode(a.InfoHash)
 }
 
-func (_ GetPeersRequest) Encode(t RandomBytes, id, infoHash ds.NodeID) []byte {
+func (g GetPeersRequest) Encode() []byte {
     q := RequestMessage{}
-    q.T = t.String()
+    q.T = g.T.String()
     q.Y = "q"
     q.Q = "get_peers"
     q.A = map[string]interface{}{
-        "id":        id.Encode(),
-        "info_hash": infoHash.Encode(),
+        "id":        g.Id.Encode(),
+        "info_hash": g.InfoHash.Encode(),
     }
 
     return MessageToBytes(q)

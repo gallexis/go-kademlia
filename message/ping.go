@@ -4,49 +4,45 @@ import (
     ds "kademlia/datastructure"
 )
 
-type ping struct {
-    T  RandomBytes
-    Id ds.NodeID
-}
-
 type PingRequest struct {
-    ping
+    T  TransactionId
+    Id ds.NodeId
 }
 
-func (_ PingRequest) Encode(t RandomBytes, nodeID ds.NodeID) []byte {
+func (p *PingRequest) Decode(t string, nodeID []byte) {
+    p.T = NewTransactionIdFromString(t)
+    p.Id.Decode(nodeID)
+}
+
+func (p PingRequest) Encode() []byte {
     q := RequestMessage{}
-    q.T = t.String()
+    q.T = p.T.String()
     q.Y = "q"
     q.Q = "ping"
 
     q.A = map[string]interface{}{
-        "id": nodeID.Encode(),
+        "id": p.Id.Encode(),
     }
 
     return MessageToBytes(q)
 }
 
-func (p *PingRequest) Decode(t string, nodeID []byte) {
-    p.T = NewRandomBytesFromString(t)
-    p.Id.Decode(nodeID)
-}
-
-
 type PingResponse struct {
-    ping
+    T  TransactionId
+    Id ds.NodeId
 }
 
 func (p *PingResponse) Decode(t string, nodeID []byte) {
-    p.T = NewRandomBytesFromString(t)
+    p.T = NewTransactionIdFromString(t)
     p.Id.Decode(nodeID)
 }
 
-func (_ PingResponse) Encode(t RandomBytes, nodeID ds.NodeID) []byte {
+func (p PingResponse) Encode() []byte {
     q := ResponseMessage{}
-    q.T = t.String()
+    q.T = p.T.String()
     q.Y = "r"
     q.R = map[string]interface{}{
-        "id": nodeID.Encode(),
+        "id": p.Id.Encode(),
     }
 
     return MessageToBytes(q)

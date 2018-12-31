@@ -6,7 +6,7 @@ import (
 )
 
 // 0b10001101 = 0x8d
-var selfID = ds.NodeID{
+var selfID = ds.NodeId{
 	0x8d,
 	0x8d,
 	0x8d,
@@ -49,7 +49,7 @@ func TestNewRoutingTable(t *testing.T) {
 	rt := ds.NewRoutingTable(ds.FakeNodeID(0x8d))
 
 	for i := 0; i < len(rt.KBuckets); i++ {
-		if rt.KBuckets[i].K != ds.K || rt.KBuckets[i].Contacts.Len() != 0 {
+		if rt.KBuckets[i].K != ds.K || rt.KBuckets[i].Nodes.Len() != 0 {
 			t.Error("problem with K or kbuckets' length")
 		}
 	}
@@ -73,7 +73,7 @@ func TestRoutingTable_Insert(t *testing.T) {
 	rt.Insert(contact2)
 	rt.Insert(contact3)
 
-	kb := rt.KBuckets[expectedContactPositionInKBucket].Contacts.Keys()
+	kb := rt.KBuckets[expectedContactPositionInKBucket].Nodes.Keys()
 
 	if kb[0] != contact2.NodeID || kb[1] != contact3.NodeID || len(kb) != 2 {
 		t.Error("problem in Insert")

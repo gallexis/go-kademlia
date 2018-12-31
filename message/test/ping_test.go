@@ -8,7 +8,7 @@ import (
 
 func TestPingResponse(t *testing.T) {
     randomNodeID := ds.FakeNodeID(0x12)
-    tx := message.NewRandomBytesFromString("aaeebb")
+    tx := message.NewTransactionIdFromString("aaeebb")
     encoded := message.PingResponse{}.Encode(tx, randomNodeID)
     g := message.BytesToMessage(encoded)
     response := message.PingResponse{}
@@ -21,7 +21,7 @@ func TestPingResponse(t *testing.T) {
 
 func TestPingRequest(t *testing.T) {
     randomNodeID := ds.FakeNodeID(0x12)
-    tx := message.NewRandomBytesFromString("aaeebb")
+    tx := message.NewTransactionIdFromString("aaeebb")
     encoded := message.PingRequest{}.Encode(tx, randomNodeID)
     g := message.BytesToMessage(encoded)
     response := message.PingRequest{}

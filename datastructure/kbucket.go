@@ -9,70 +9,83 @@ import (
 )
 
 type KBucket struct {
-    Contacts *lru.Cache
-    K        int
-    mutex    *sync.Mutex
+    Nodes *lru.Cache
+    K     int
+    mutex sync.Mutex
+    InsertDurationMax time.Duration
 }
 
 func NewKBucket(k int) KBucket {
-    contacts, err := lru.New(k)
+    nodes, err := lru.New(k)
     if err != nil {
         log.Fatalln(err)
     }
     return KBucket{
-        Contacts: contacts,
+        Nodes: nodes,
         K:        k,
-        mutex:    &sync.Mutex{},
+        mutex:    sync.Mutex{},
+        InsertDurationMax: 5 * time.Second,
     }
 }
 
-func (kb *KBucket) Insert(newContact Contact, pingNode func(chan bool)) {
-    if !kb.isInBucket(newContact.NodeID) && kb.freeSpaceLeft() { // Insert
-        kb.Contacts.Add(newContact.NodeID, newContact)
+func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)) {
+    newNodeId := newNode.ContactInfo.NodeID
 
-    } else if kb.isInBucket(newContact.NodeID) { // Update
-        kb.Contacts.Remove(newContact.NodeID)
-        kb.Contacts.Add(newContact.NodeID, newContact)
+    if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft() {
+        kb.Nodes.Add(newNodeId, newNode)
+
+    } else if kb.isInBucket(newNodeId) {
+        kb.Nodes.Get(newNodeId) // put in top of LRU
 
     } else { // Insert when full KB
-        keys := kb.Contacts.Keys()
-        oldestContact, _ := kb.Contacts.Peek(keys[0].(NodeID))
-        oldestNodeID := oldestContact.(Contact).NodeID
-        tick := time.Tick(5 * time.Second)
+        keys := kb.Nodes.Keys()
+        oldestNodeInterface, ok := kb.Nodes.Peek(keys[0])
+        if !ok{
+            log.Error("Peek not ok, node might have been removed (Mutex problem ?)")
+            return
+        }
+        oldestNode := oldestNodeInterface.(Node)
+        if oldestNode.IsGood(){ // don't remove the node if we know it is good
+            return
+        }
+
+        oldestNodeID := oldestNode.ContactInfo.NodeID
         pingChan := make(chan bool)
+        tick := time.Tick(kb.InsertDurationMax)
 
         pingNode(pingChan)
 
         select {
         case <-tick:
-            kb.Contacts.Add(newContact.NodeID, newContact) //Add will remove oldestContact then add newContact
+            kb.Nodes.Add(newNodeId, newNode) //Add will remove oldestContact then add newNode
             //log.Println("add new")
         case <-pingChan:
-            kb.Contacts.Add(oldestNodeID, oldestContact) // if the oldest answers, put it back to the tail
-            log.Info("add old")
+            oldestNode.UpdateLastMessageReceived()
+            kb.Nodes.Add(oldestNodeID, oldestNode) // if the oldest answers, put it back to the tail
+            log.Info("add old node")
         }
     }
 }
 
-func (kb KBucket) GetRandomContacts(alpha int) []Contact {
-    keys := kb.Contacts.Keys()
+func (kb KBucket) GetRandomNodes(alpha int) []Node {
+    keys := kb.Nodes.Keys()
     contactsLength := len(keys)
-    var contacts []Contact
+    var nodes []Node
 
     for i, key := range rand.Perm(contactsLength) {
         if i >= alpha{
             break
         }
-        contact, _ := kb.Contacts.Peek(keys[key].(NodeID))
-        contacts = append(contacts, contact.(Contact))
+        node, _ := kb.Nodes.Peek(keys[key].(NodeId))
+        nodes = append(nodes, node.(Node))
     }
-    return contacts
+    return nodes
 }
 
 func (kb KBucket) freeSpaceLeft() bool {
-    return kb.Contacts.Len() < kb.K
+    return kb.Nodes.Len() < kb.K
 }
 
-func (kb KBucket) isInBucket(nid NodeID) bool {
-    return kb.Contacts.Contains(nid)
+func (kb KBucket) isInBucket(nid NodeId) bool {
+    return kb.Nodes.Contains(nid)
 }

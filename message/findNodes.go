@@ -4,51 +4,47 @@ import (
     ds "kademlia/datastructure"
 )
 
-type findNode struct {
-    T  RandomBytes
-    Id ds.NodeID
-}
-
 type FindNodeResponse struct {
-    findNode
-    Contact []ds.Contact
+    T  TransactionId
+    Id ds.NodeId
+    Nodes []ds.Node
 }
 
-func (e *FindNodeResponse) Decode(t string, response Response) {
+func (f *FindNodeResponse) Decode(t string, response Response) {
     lengthNodeID := 26
     numberOfNodes := len(response.Nodes) / lengthNodeID
     if numberOfNodes > 16 {
         numberOfNodes = 16
     }
 
-    e.T = NewRandomBytesFromString(t)
-    e.Id.Decode(response.Id)
+    f.T = NewTransactionIdFromString(t)
+    f.Id.Decode(response.Id)
+
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
-        contact := ds.Contact{}
-        contact.Decode(response.Nodes[offset:(offset + lengthNodeID)])
-        e.Contact = append(e.Contact, contact)
-
+        node := ds.Node{}
+        node.ContactInfo.Decode(response.Nodes[offset:(offset + lengthNodeID)])
+        f.Nodes = append(f.Nodes, node)
     }
 }
 
-func (_ FindNodeResponse) Encode(t RandomBytes, id ds.NodeID, nodes []ds.Contact) []byte {
-    numberOfNodes := len(nodes)
+func (f FindNodeResponse) Encode() []byte {
+    numberOfNodes := len(f.Nodes)
     if numberOfNodes > 8 {
         numberOfNodes = 8
     }
 
     q := ResponseMessage{}
     var byteNodes []byte
-    q.T = t.String()
+    q.T = f.T.String()
     q.Y = "r"
 
     for i := 0; i < numberOfNodes; i++ {
-        byteNodes = append(byteNodes, nodes[i].Encode()...)
+        byteNodes = append(byteNodes, f.Nodes[i].ContactInfo.Encode()...)
     }
 
     q.R = map[string]interface{}{
-        "id":    id.Encode(),
+        "id":    f.Id.Encode(),
         "nodes": byteNodes,
     }
 
@@ -56,25 +52,26 @@ func (_ FindNodeResponse) Encode(t RandomBytes, id ds.NodeID, nodes []ds.Contact
 }
 
 type FindNodeRequest struct {
-    findNode
-    Target ds.NodeID
+    T  TransactionId
+    Id ds.NodeId
+    Target ds.NodeId
 }
 
-func (e *FindNodeRequest) Decode(t string, a Answer) {
-    e.T = NewRandomBytesFromString(t)
-    e.Id.Decode(a.Id)
-    e.Target.Decode(a.Target)
+func (f *FindNodeRequest) Decode(t string, a Answer) {
+    f.T = NewTransactionIdFromString(t)
+    f.Id.Decode(a.Id)
+    f.Target.Decode(a.Target)
 }
 
-func (_ FindNodeRequest) Encode(t RandomBytes, id, target ds.NodeID) []byte {
+func (f FindNodeRequest) Encode() []byte {
     q := RequestMessage{}
-    q.T = t.String()
+    q.T = f.T.String()
     q.Y = "q"
     q.Q = "find_node"
 
     q.A = map[string]interface{}{
-        "id":     id.Encode(),
-        "target": target.Encode(),
+        "id":     f.Id.Encode(),
+        "target": f.Target.Encode(),
     }
 
     return MessageToBytes(q)

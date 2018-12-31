@@ -8,8 +8,8 @@ import (
 
 func TestGetPeersResponse(t *testing.T) {
     randomNodeID := ds.FakeNodeID(0x12)
-    tx := message.NewRandomBytesFromString("aaeebb")
-    token := message.NewRandomBytesFromString("bbaaee")
+    tx := message.NewTransactionIdFromString("aaeebb")
+    token := message.NewTransactionIdFromString("bbaaee")
     values := []string{"abc", "def"}
     encoded := message.GetPeersResponse{}.Encode(tx, randomNodeID, token, values)
     g := message.BytesToMessage(encoded)
@@ -30,8 +30,8 @@ func TestGetPeersResponseWithNodes(t *testing.T) {
     randomNodeID := ds.FakeNodeID(0x12)
     n2 := ds.FakeNodeID(0x13)
     n3 := ds.FakeNodeID(0x14)
-    tx := message.NewRandomBytesFromString("aaeebb")
-    token := message.NewRandomBytesFromString("bbaaee")
+    tx := message.NewTransactionIdFromString("aaeebb")
+    token := message.NewTransactionIdFromString("bbaaee")
     nodes := []ds.NodeID{n2, n3}
     encoded := message.GetPeersResponseWithNodes{}.Encode(tx, randomNodeID, token, nodes)
     g := message.BytesToMessage(encoded)
@@ -51,7 +51,7 @@ func TestGetPeersResponseWithNodes(t *testing.T) {
 func TestGetPeersRequest(t *testing.T) {
     randomNodeID := ds.FakeNodeID(0x12)
     infohash := ds.FakeNodeID(0xF4)
-    tx := message.NewRandomBytesFromString("aaeebb")
+    tx := message.NewTransactionIdFromString("aaeebb")
     encoded := message.GetPeersRequest{}.Encode(tx, randomNodeID, infohash)
     g := message.BytesToMessage(encoded)
 
