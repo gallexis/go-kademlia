@@ -8,15 +8,18 @@ import (
     "time"
 )
 
+const (
+    MinBucketFilled = 20
+)
+
 type DHT struct {
-    selfNodeID      ds.NodeId
-    routingTable    ds.RoutingTable
-    pingPool        map[string]chan bool
-    conn            *net.UDPConn
-    bootstrapNodes  []string
-    peerStore       ds.PeerStore
-    eventDispatcher Dispatcher
-    latestBucketFilled int
+    selfNodeID         ds.NodeId
+    routingTable       ds.RoutingTable
+    pingPool           map[string]chan bool
+    conn               *net.UDPConn
+    bootstrapNodes     []string
+    peerStore          ds.PeerStore
+    eventDispatcher    Dispatcher
 }
 
 func NewDHT() DHT {
@@ -41,12 +44,11 @@ func NewCustomDHT(nid ds.NodeId, bootstrapNodes []string, conn *net.UDPConn) DHT
     return DHT{
         selfNodeID:         nid,
         routingTable:       ds.NewRoutingTable(nid),
-        pingPool:           nil,
+        pingPool:           make(map[string]chan bool),
         conn:               conn,
         bootstrapNodes:     bootstrapNodes,
         peerStore:          nil,
         eventDispatcher:    NewDispatcher(),
-        latestBucketFilled: ds.BitsInNodeID,
     }
 }
 
@@ -87,7 +89,7 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
     }
 
     // Assert response if findNodeResponse
-    g := message.BytesToMessage(buffer)
+    g, _ := message.BytesToMessage(buffer)
     if g.Y != "r" || len(g.R.Nodes) <= 0 {
         log.Panic("Not event findNode Response")
     }
@@ -104,19 +106,20 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
     return true
 }
 
-
 func (d *DHT) Receiver() {
-    buffer := make([]byte, 1024)
+    go func() {
+        buffer := make([]byte, 1024)
 
-    for {
-        n, _, err := d.conn.ReadFromUDP(buffer)
-        if err != nil {
-            log.Printf("Some error %v", err)
-            time.Sleep(time.Second * 1)
-            continue
+        for {
+            n, _, err := d.conn.ReadFromUDP(buffer)
+            if err != nil {
+                log.Printf("Some error %v", err)
+                time.Sleep(time.Second * 1)
+                continue
+            }
+            d.Router(buffer[:n])
         }
-        d.Router(buffer[:n])
-    }
+    }()
 }
 
 func (d *DHT) Send(data []byte, contact ds.Contact) {
@@ -127,9 +130,11 @@ func (d *DHT) Send(data []byte, contact ds.Contact) {
     }
 }
 
-
 func (d *DHT) Router(data []byte) {
-    g := message.BytesToMessage(data)
+    g, ok := message.BytesToMessage(data)
+    if !ok{
+        return
+    }
 
     switch g.Y {
     case "q":
@@ -160,31 +165,31 @@ func (d *DHT) Router(data []byte) {
         }
 
     case "r":
+        callback, exists := d.eventDispatcher.GetEvent(g.T)
+        if !exists {
+            return
+        }
 
         switch {
         case len(g.R.Values) > 0 && len(g.R.Token) > 0:
             getPeers := message.GetPeersResponse{}
             getPeers.Decode(g.T, g.R)
-            d.OnGetPeersResponse(getPeers)
+            callback.CallWithArgs(getPeers)
 
         case len(g.R.Nodes) > 0 && len(g.R.Token) > 0:
             getPeers := message.GetPeersResponseWithNodes{}
             getPeers.Decode(g.T, g.R)
-            d.OnGetPeersWithNodesResponse(getPeers)
+            callback.CallWithArgs(getPeers)
 
         case len(g.R.Nodes) > 0:
             findNodes := message.FindNodeResponse{}
             findNodes.Decode(g.T, g.R)
-            d.OnFindNodesResponse(findNodes)
-            f, exists := d.eventDispatcher.EventExists(findNodes.T.String(), false)
-            if exists {
-                f()
-            }
+            callback.CallWithArgs(findNodes)
 
         case len(g.R.Id) > 0:
             ping := message.PingResponse{}
             ping.Decode(g.T, g.R.Id)
-            d.OnPingResponse(ping)
+            callback.CallWithArgs(ping)
 
             /*
             AnnouncePeersResponse == PingResponse

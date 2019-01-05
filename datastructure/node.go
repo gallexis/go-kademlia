@@ -1,11 +1,15 @@
 package datastructure
 
-import "time"
+import (
+    "sync"
+    "time"
+)
 
 type Node struct {
     ContactInfo         Contact
     LastMessageReceived time.Time
     LastFindNodeRequest time.Time
+    mutex               sync.Mutex
 }
 
 func NewNode(contactInfo Contact) Node {
@@ -15,9 +19,12 @@ func NewNode(contactInfo Contact) Node {
 }
 
 func (n *Node) RequestFindNode() bool {
+    n.mutex.Lock()
+    defer n.mutex.Unlock()
+
     now := time.Now()
 
-    if n.LastFindNodeRequest.Add(time.Second * 10).After(now) {
+    if n.LastFindNodeRequest.Add(time.Minute).After(now) {
         return false
     }
 

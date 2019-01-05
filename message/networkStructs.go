@@ -58,11 +58,13 @@ func MessageToBytes(message interface{}) []byte {
     return buffer
 }
 
-func BytesToMessage(data []byte) (g GenericMessage) {
+func BytesToMessage(data []byte) (g GenericMessage, ok bool) {
     decoder := bencode.NewDecoder(bytes.NewBuffer(data))
     if err := decoder.Decode(&g); err != nil {
-        log.Panic(err)
+        log.Error(err)
+        return
     }
+    ok = true
     return
 }
 

@@ -1,8 +1,10 @@
 package main
 
 import (
+    "fmt"
     log "github.com/sirupsen/logrus"
     "kademlia/message"
+    "time"
 )
 
 func (d *DHT) OnAnnouncePeerResponse(announcePeer message.AnnouncePeersResponse) {
@@ -19,38 +21,38 @@ func (d *DHT) OnGetPeersWithNodesResponse(getPeersWithNodes message.GetPeersResp
 
 // FIND NODES
 func (d *DHT) OnFindNodesResponse(findNodes message.FindNodeResponse) {
-    log.Infof("findNodes: %+v", findNodes)
-    if !d.eventDispatcher.EventExists(findNodes.T.String()) {
-        return
-    }
+    //log.Println("findNodes")
+    fmt.Println("findnodes")
 
     for _, c := range findNodes.Nodes {
         d.routingTable.Insert(c, d.PingRequest)
-    }
-
-    if d.latestBucketFilled <= d.routingTable.GetLatestBucketFilled() {
-        d.PopulateRT()
     }
 }
 
 func (d *DHT) PopulateRT() {
     closestNodes := d.routingTable.GetClosestNodes()
-    d.latestBucketFilled = d.routingTable.GetLatestBucketFilled()
+    tx := message.NewTransactionId()
 
     for _, node := range closestNodes {
-        if !node.RequestFindNode() {
-            continue
-        }
-
-        tx := message.NewTransactionId()
         findNodeRequest := message.FindNodeRequest{
             T:      tx,
             Id:     d.selfNodeID,
             Target: d.selfNodeID,
         }
-        d.eventDispatcher.AddEvent(tx.String(), )
         d.Send(findNodeRequest.Encode(), node.ContactInfo)
     }
+
+    if d.routingTable.ClosestBucketFilled < MinBucketFilled{
+        d.eventDispatcher.AddEvent(tx.String(), Event{
+            timeout:           time.Now(),
+            maxTries:          1,
+            duplicates:        8,
+            CallbackOnTimeout: NewCallback(d.PopulateRT),
+            Callback:          NewCallback(d.OnFindNodesResponse),
+            Caller:            Callback{},
+        })
+    }
+    fmt.Println(d.routingTable.ClosestBucketFilled, d.routingTable)
 }
 
 //----------------------------------------

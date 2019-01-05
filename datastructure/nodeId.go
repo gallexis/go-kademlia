@@ -77,7 +77,7 @@ func FakeNodeID(id uint8) (n NodeId) {
     return
 }
 
-func (_ NodeId) GetBucketNumber(xoredID NodeId) int {
+func (_ NodeId) GetBucketNumber(xoredID NodeId) BucketPosition {
     bytePosition := 0
     bitPosition := 0
 
@@ -85,14 +85,14 @@ func (_ NodeId) GetBucketNumber(xoredID NodeId) int {
         if xoredID[bytePosition] != 0 {
             for bitPosition = 0; bitPosition < 8; bitPosition++ {
                 if xoredID[bytePosition]&128 == 128 {
-                    return bytePosition*8 + bitPosition
+                    return BucketPosition(bytePosition*8 + bitPosition)
                 }
                 xoredID[bytePosition] <<= 1
             }
         }
     }
 
-    return -1
+    return BitsInNodeID-1
 }
 
 func (n NodeId) String() string {

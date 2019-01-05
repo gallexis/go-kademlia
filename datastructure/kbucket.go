@@ -24,11 +24,11 @@ func NewKBucket(k int) KBucket {
         Nodes: nodes,
         K:        k,
         mutex:    sync.Mutex{},
-        InsertDurationMax: 5 * time.Second,
+        InsertDurationMax: 3 * time.Second,
     }
 }
 
-func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)) {
+func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)){
     newNodeId := newNode.ContactInfo.NodeID
 
     if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft() {

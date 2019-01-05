@@ -11,11 +11,21 @@ var (
     Alpha = 3
 )
 
+type BucketPosition int
+
+func (b BucketPosition) CloserThan(other BucketPosition) bool{
+    return b > other
+}
+
+
+// Closest bucket = 159 (BitsInNodeID)
+// Furthest bucket = 0
 type RoutingTable struct {
-    KBuckets   [BitsInNodeID]KBucket
-    selfNodeID NodeId
-    K          int
-    Alpha      int
+    KBuckets            [BitsInNodeID]KBucket
+    selfNodeID          NodeId
+    K                   int
+    Alpha               int
+    ClosestBucketFilled BucketPosition
 }
 
 func NewRoutingTable(nodeID NodeId) RoutingTable {
@@ -24,10 +34,11 @@ func NewRoutingTable(nodeID NodeId) RoutingTable {
 
 func NewRoutingTableWithDetails(nodeID NodeId, k int, alpha int) RoutingTable {
     rt := RoutingTable{
-        KBuckets:   [BitsInNodeID]KBucket{},
-        selfNodeID: nodeID,
-        K:          k,
-        Alpha:      alpha,
+        KBuckets:            [BitsInNodeID]KBucket{},
+        selfNodeID:          nodeID,
+        K:                   k,
+        Alpha:               alpha,
+        ClosestBucketFilled: 0,
     }
 
     for i := 0; i < BitsInNodeID; i++ {
@@ -43,7 +54,7 @@ func (rt RoutingTable) String() string {
     content += "----Display RT--------------------------\n"
     for i, b := range rt.KBuckets {
         if b.Nodes.Len() > 0 {
-            content += fmt.Sprintln(159-i, ": ", b.Nodes.Len())
+            content += fmt.Sprintln(i, ": ", b.Nodes.Len())
         }
     }
     content += "----------------------------------------\n"
@@ -52,21 +63,24 @@ func (rt RoutingTable) String() string {
 }
 
 func (rt *RoutingTable) DisplayBucket(bucketNumber int) string {
-    return fmt.Sprint(159-bucketNumber, ": ", rt.KBuckets[bucketNumber].Nodes.Len())
+    return fmt.Sprint(bucketNumber, ": ", rt.KBuckets[bucketNumber].Nodes.Len())
 }
 
 func (rt *RoutingTable) Insert(newNode Node, pingNode func(chan bool)) {
-    xoredID := rt.selfNodeID.XOR(newNode.ContactInfo.NodeID)
-    position := rt.selfNodeID.GetBucketNumber(xoredID)
-
-    if position < 0 {
-        log.Error("Bucket position error: ", position, newNode, xoredID)
+    if newNode.ContactInfo.NodeID.Equals(rt.selfNodeID){
+        log.Info("Found myself")
         return
     }
 
-    rt.KBuckets[position].mutex.Lock()
-    rt.KBuckets[position].Insert(newNode, pingNode)
-    rt.KBuckets[position].mutex.Unlock()
+    xoredID := rt.selfNodeID.XOR(newNode.ContactInfo.NodeID)
+    bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
+
+    rt.KBuckets[bucketNumber].mutex.Lock()
+    rt.KBuckets[bucketNumber].Insert(newNode, pingNode)
+    if bucketNumber.CloserThan(rt.ClosestBucketFilled) {
+        rt.ClosestBucketFilled = bucketNumber
+    }
+    rt.KBuckets[bucketNumber].mutex.Unlock()
 }
 
 func (rt *RoutingTable) GetRandomNodes(bucketPosition int) []Node {
@@ -77,8 +91,7 @@ func (rt *RoutingTable) GetRandomNodes(bucketPosition int) []Node {
 }
 
 func (rt *RoutingTable) GetClosestNodes() (nodes []Node) {
-    bucketNumber := rt.GetLatestBucketFilled()
-
+    bucketNumber := rt.ClosestBucketFilled
     rt.KBuckets[bucketNumber].mutex.Lock()
     defer rt.KBuckets[bucketNumber].mutex.Unlock()
 
@@ -113,17 +126,6 @@ func (rt *RoutingTable) Get(otherID NodeId) (nodes []Node) {
     return
 }
 
-func (rt *RoutingTable) GetLatestBucketFilled() int {
-    last := 159
-
-    for i := 0; i < K; i++ {
-        if rt.KBuckets[i].Nodes.Len() > 0 {
-            last = 159 - i
-        }
-    }
-    return last
-}
-
 func (rt *RoutingTable) GetOne(otherID NodeId) (Node, bool) {
     xoredID := rt.selfNodeID.XOR(otherID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
@@ -139,7 +141,7 @@ func (rt *RoutingTable) GetOne(otherID NodeId) (Node, bool) {
     }
 }
 
-func (rt *RoutingTable) UpdateNodeStatus(otherID NodeId) bool{
+func (rt *RoutingTable) UpdateNodeStatus(otherID NodeId) bool {
     xoredID := rt.selfNodeID.XOR(otherID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
@@ -158,8 +160,7 @@ func (rt *RoutingTable) UpdateNodeStatus(otherID NodeId) bool{
     return true
 }
 
-
-func (rt RoutingTable) fillNodesByBucketNumber(bucketNumber int, nodes *[]Node) {
+func (rt RoutingTable) fillNodesByBucketNumber(bucketNumber BucketPosition, nodes *[]Node) {
     nodesInterface := rt.KBuckets[bucketNumber].Nodes.Keys()
 
     for _, nodeID := range nodesInterface {
@@ -168,7 +169,7 @@ func (rt RoutingTable) fillNodesByBucketNumber(bucketNumber int, nodes *[]Node) 
     }
 }
 
-func (rt RoutingTable) getClosestNeighbours(positions []int, nodes *[]Node) {
+func (rt RoutingTable) getClosestNeighbours(positions []BucketPosition, nodes *[]Node) {
     for _, bucketNumber := range positions {
         rt.fillNodesByBucketNumber(bucketNumber, nodes)
 
@@ -179,15 +180,14 @@ func (rt RoutingTable) getClosestNeighbours(positions []int, nodes *[]Node) {
     }
 }
 
-func generateClosestNeighboursPositions(origin int) []int {
-    var positions []int
-    after := 0
-    before := 0
+func generateClosestNeighboursPositions(origin BucketPosition) (positions []BucketPosition) {
+    var after BucketPosition = 0
+    var before BucketPosition = 0
 
     // TODO: write own Max function
     for i := 0; i < int(math.Max(float64(origin), float64(BitsInNodeID-origin))+1); i++ {
-        after = (origin + i) % BitsInNodeID
-        before = origin - i
+        after = (origin + BucketPosition(i)) % BitsInNodeID
+        before = origin - BucketPosition(i)
 
         if after > origin {
             positions = append(positions, after)
@@ -197,5 +197,5 @@ func generateClosestNeighboursPositions(origin int) []int {
             positions = append(positions, before)
         }
     }
-    return positions
+    return
 }
