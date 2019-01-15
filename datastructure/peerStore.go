@@ -1,14 +1,18 @@
 package datastructure
 
+type PeerStore map[string][]Node
 
-type PeerInfo struct {
-    IP     string
-    Port   string
+func (p *PeerStore) Add(infoHash InfoHash, nodes []Node) {
+    v, exists := (*p)[infoHash.String()]
+    if exists {
+        v = append(v, nodes...)
+        (*p)[infoHash.String()] = v
+    } else {
+        (*p)[infoHash.String()] = nodes
+    }
 }
 
-type PeerStore map[string][]PeerInfo
-
-func (p *PeerStore) Add(infoHash, ip, port string){
-    //p[infoHash] = PeerInfo{}
-
+func (p *PeerStore) Contains(infoHash InfoHash) bool {
+    _, exists := (*p)[infoHash.String()]
+    return exists
 }

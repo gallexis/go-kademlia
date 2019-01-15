@@ -9,9 +9,9 @@ type PingRequest struct {
     Id ds.NodeId
 }
 
-func (p *PingRequest) Decode(t string, nodeID []byte) {
-    p.T = NewTransactionIdFromString(t)
-    p.Id.Decode(nodeID)
+func (p *PingRequest) Decode(message GenericMessage) {
+    p.T = NewTransactionIdFromString(message.T)
+    p.Id.Decode(message.R.Id)
 }
 
 func (p PingRequest) Encode() []byte {
@@ -32,9 +32,9 @@ type PingResponse struct {
     Id ds.NodeId
 }
 
-func (p *PingResponse) Decode(t string, nodeID []byte) {
-    p.T = NewTransactionIdFromString(t)
-    p.Id.Decode(nodeID)
+func (p *PingResponse) Decode(message GenericMessage) {
+    p.T = NewTransactionIdFromString(message.T)
+    p.Id.Decode(message.R.Id)
 }
 
 func (p PingResponse) Encode() []byte {

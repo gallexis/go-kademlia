@@ -86,9 +86,16 @@ func NewTransactionIdFromString(tx string) TransactionId {
     t := TransactionId{}
     t, err := hex.DecodeString(tx)
     if err != nil {
-        log.Panicf("Error when decoding from string: %v", err)
+        log.Errorf("Error when decoding from string: %v | %v | %v", err, tx, []byte(tx))
+        return []byte(tx)
     }
     return t
 }
 
 type Token = TransactionId
+
+
+type Message interface {
+    Encode() []byte
+    Decode(GenericMessage)
+}

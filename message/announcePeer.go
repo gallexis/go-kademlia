@@ -7,9 +7,9 @@ type AnnouncePeersResponse struct {
     Id ds.NodeId
 }
 
-func (a *AnnouncePeersResponse) Decode(t string, r Response) {
-    a.T = NewTransactionIdFromString(t)
-    a.Id.Decode(r.Id)
+func (a *AnnouncePeersResponse) Decode(message GenericMessage) {
+    a.T = NewTransactionIdFromString(message.T)
+    a.Id.Decode(message.R.Id)
 }
 
 func (a AnnouncePeersResponse) Encode() []byte {
@@ -32,13 +32,13 @@ type AnnouncePeersRequest struct {
     Token       Token
 }
 
-func (a *AnnouncePeersRequest) Decode(t string, answer Answer) {
-    a.T = NewTransactionIdFromString(t)
-    a.Id.Decode(answer.Id)
-    a.ImpliedPort = answer.ImpliedPort
-    a.InfoHash.Decode(answer.InfoHash)
-    a.Port = answer.Port
-    a.Token = answer.Token
+func (a *AnnouncePeersRequest) Decode(message GenericMessage) {
+    a.T = NewTransactionIdFromString(message.T)
+    a.Id.Decode(message.A.Id)
+    a.ImpliedPort = message.A.ImpliedPort
+    a.InfoHash.Decode(message.A.InfoHash)
+    a.Port = message.A.Port
+    a.Token = message.A.Token
 }
 
 func (a AnnouncePeersRequest) Encode() []byte {

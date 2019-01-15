@@ -14,20 +14,21 @@ type Callback struct {
     args []reflect.Value
 }
 
-func (c *Callback) Call() {
+func (c Callback) isSet() bool{
+    return !reflect.DeepEqual(c, Callback{})
+}
+
+func (c *Callback) Call(args ...interface{}) {
     if c.fn.Kind() != reflect.Func {
         return
     }
-    c.fn.Call(c.args)
-}
 
-func (c *Callback) CallWithArgs(args ...interface{}) {
     vargs := make([]reflect.Value, len(args))
     for i, arg := range args {
         vargs[i] = reflect.ValueOf(arg)
     }
 
-    c.fn.Call(vargs)
+    c.fn.Call(append(c.args, vargs...))
 }
 
 // stackoverflow.com/questions/52759729/is-there-a-way-to-define-a-function-can-run-any-callback-function-in-golang
@@ -63,9 +64,9 @@ type Dispatcher struct {
 
 func NewDispatcher() Dispatcher {
     return Dispatcher{
-        out:   make(chan bool),
-        Tick:  time.Tick(time.Second * 5),
-        Map:   make(map[string]Event),
+        out:  make(chan bool),
+        Tick: time.Tick(time.Second * 5),
+        Map:  make(map[string]Event),
     }
 }
 
@@ -81,25 +82,20 @@ func (d *Dispatcher) Start() {
             case <-d.Tick:
                 now := time.Now()
 
-                fmt.Println("-->>>>", len(d.Map))
                 for k, v := range d.Map {
                     if now.Before(v.timeout.Add(DefaultEventTimeout)) {
                         continue
                     }
 
                     if v.maxTries <= 1 {
-                        fmt.Println("delete event (Start)", v.Callback.fn.String())
-                        if !reflect.DeepEqual(v.CallbackOnTimeout, Callback{}) {
-                            fmt.Println("reflect.DeepEqual")
+                        if v.CallbackOnTimeout.isSet() {
                             v.CallbackOnTimeout.Call()
                         }
                         delete(d.Map, k)
                     } else {
-                        fmt.Println("Call Callback", v.Callback.fn.String())
                         v.Caller.Call()
                         v.maxTries -= 1
                         d.Map[k] = v
-                        fmt.Println("Call Callback - end")
                     }
                 }
 
@@ -114,11 +110,11 @@ func (d *Dispatcher) AddEvent(tx string, event Event) {
     d.Map[tx] = event
 }
 
-func (d *Dispatcher) GetEvent(tx string) (Callback, bool) {
+func (d *Dispatcher) GetCallback(tx string) (Callback, bool) {
     v, ok := d.Map[tx]
     if ok {
         if v.duplicates <= 0 {
-            fmt.Println("delete event (GetEvent)", v.Callback.fn.String())
+            fmt.Println("delete event (GetCallback)", v.Callback.fn.String())
             delete(d.Map, tx)
         } else {
             fmt.Println("duplicates-1 : ", v.duplicates)

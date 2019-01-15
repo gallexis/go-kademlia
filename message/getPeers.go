@@ -11,11 +11,11 @@ type GetPeersResponse struct {
     Values []string
 }
 
-func (g *GetPeersResponse) Decode(t string, r Response) {
-    g.T = NewTransactionIdFromString(t)
-    g.Id.Decode(r.Id)
-    g.Token = r.Token
-    g.Values = r.Values
+func (g *GetPeersResponse) Decode(message GenericMessage) {
+    g.T = NewTransactionIdFromString(message.T)
+    g.Id.Decode(message.R.Id)
+    g.Token = message.R.Token
+    g.Values = message.R.Values
 }
 
 func (g GetPeersResponse) Encode() []byte {
@@ -35,23 +35,24 @@ type GetPeersResponseWithNodes struct {
     T TransactionId
     Id    ds.NodeId
     Token Token
-    Nodes []ds.NodeId
+    Nodes []ds.Node
 }
 
-func (g *GetPeersResponseWithNodes) Decode(t string, r Response) {
+func (g *GetPeersResponseWithNodes) Decode(message GenericMessage) {
     lengthNodeID := ds.BytesInNodeID
-    numberOfNodes := len(r.Nodes) / lengthNodeID
+    numberOfNodes := len(message.R.Nodes) / lengthNodeID
     if numberOfNodes > 8 {
         numberOfNodes = 8
     }
-    g.T = NewTransactionIdFromString(t)
-    g.Id.Decode(r.Id)
-    g.Token = r.Token
+    g.T = NewTransactionIdFromString(message.T)
+    g.Id.Decode(message.R.Id)
+    g.Token = message.R.Token
+
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
-        nid := ds.NodeId{}
-        nid.Decode(r.Nodes[offset:(offset + lengthNodeID)])
-        g.Nodes = append(g.Nodes, nid)
+        node := ds.Node{}
+        node.ContactInfo.Decode(message.R.Nodes[offset:(offset + lengthNodeID)])
+        g.Nodes = append(g.Nodes, node)
     }
 }
 
@@ -63,7 +64,7 @@ func (g GetPeersResponseWithNodes) Encode() []byte {
     }
 
     for i := 0; i < numberOfNodes; i++ {
-        byteNodes = append(byteNodes, g.Nodes[i].Encode()...)
+        byteNodes = append(byteNodes, g.Nodes[i].ContactInfo.Encode()...)
     }
 
     q := ResponseMessage{}
@@ -84,10 +85,10 @@ type GetPeersRequest struct {
     InfoHash ds.InfoHash
 }
 
-func (g *GetPeersRequest) Decode(t string, a Answer) {
-    g.T = NewTransactionIdFromString(t)
-    g.Id.Decode(a.Id)
-    g.InfoHash.Decode(a.InfoHash)
+func (g *GetPeersRequest) Decode(message GenericMessage) {
+    g.T = NewTransactionIdFromString(message.T)
+    g.Id.Decode(message.A.Id)
+    g.InfoHash.Decode(message.A.InfoHash)
 }
 
 func (g GetPeersRequest) Encode() []byte {

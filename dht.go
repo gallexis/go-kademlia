@@ -1,6 +1,7 @@
 package main
 
 import (
+    "fmt"
     log "github.com/sirupsen/logrus"
     ds "kademlia/datastructure"
     "kademlia/message"
@@ -96,7 +97,7 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
 
     // Decode FindNodeResponse
     findNodes := message.FindNodeResponse{}
-    findNodes.Decode(g.T, g.R)
+    findNodes.Decode(g)
 
     // Update routing table with nodes received
     for _, c := range findNodes.Nodes {
@@ -131,6 +132,8 @@ func (d *DHT) Send(data []byte, contact ds.Contact) {
 }
 
 func (d *DHT) Router(data []byte) {
+    var msg message.Message
+
     g, ok := message.BytesToMessage(data)
     if !ok{
         return
@@ -141,67 +144,53 @@ func (d *DHT) Router(data []byte) {
 
         switch g.Q {
         case "ping":
-            ping := message.PingRequest{}
-            ping.Decode(g.T, g.A.Id)
             log.Info("PingRequest")
+            msg = &message.PingRequest{}
 
         case "find_node":
-            findNodesRequest := message.FindNodeRequest{}
-            findNodesRequest.Decode(g.T, g.A)
             log.Info("FindNodeRequest")
+            msg = &message.FindNodeRequest{}
 
         case "get_peers":
-            getPeers := message.GetPeersRequest{}
-            getPeers.Decode(g.T, g.A)
             log.Info("GetPeersRequest")
+            msg = &message.GetPeersRequest{}
 
         case "announce_peer":
-            announcePeers := message.AnnouncePeersRequest{}
-            announcePeers.Decode(g.T, g.A)
             log.Info("AnnouncePeersRequest")
+            msg = &message.AnnouncePeersRequest{}
 
         default:
             log.Panic("q")
         }
 
+        msg.Decode(g)
+        fmt.Printf("Receive Query : %+v \n", msg)
+
     case "r":
-        callback, exists := d.eventDispatcher.GetEvent(g.T)
+        callback, exists := d.eventDispatcher.GetCallback(g.T)
         if !exists {
             return
         }
 
         switch {
         case len(g.R.Values) > 0 && len(g.R.Token) > 0:
-            getPeers := message.GetPeersResponse{}
-            getPeers.Decode(g.T, g.R)
-            callback.CallWithArgs(getPeers)
+            msg = &message.GetPeersResponse{}
 
         case len(g.R.Nodes) > 0 && len(g.R.Token) > 0:
-            getPeers := message.GetPeersResponseWithNodes{}
-            getPeers.Decode(g.T, g.R)
-            callback.CallWithArgs(getPeers)
+            msg = &message.GetPeersResponseWithNodes{}
 
         case len(g.R.Nodes) > 0:
-            findNodes := message.FindNodeResponse{}
-            findNodes.Decode(g.T, g.R)
-            callback.CallWithArgs(findNodes)
+            msg = &message.FindNodeResponse{}
 
         case len(g.R.Id) > 0:
-            ping := message.PingResponse{}
-            ping.Decode(g.T, g.R.Id)
-            callback.CallWithArgs(ping)
-
-            /*
-            AnnouncePeersResponse == PingResponse
-
-                announcePeers := AnnouncePeersResponse{}
-                announcePeers.Decode(g.TransactionId, g.R)
-                log.Println(announcePeers)
-             */
+            msg = &message.PingResponse{}
 
         default:
             log.Panic("r", g.Y)
         }
+
+        msg.Decode(g)
+        callback.Call(msg)
 
     case "e":
         log.Info("Error:", g.E)

@@ -10,20 +10,20 @@ type FindNodeResponse struct {
     Nodes []ds.Node
 }
 
-func (f *FindNodeResponse) Decode(t string, response Response) {
+func (f *FindNodeResponse) Decode(message GenericMessage) {
     lengthNodeID := 26
-    numberOfNodes := len(response.Nodes) / lengthNodeID
+    numberOfNodes := len(message.R.Nodes) / lengthNodeID
     if numberOfNodes > 16 {
         numberOfNodes = 16
     }
 
-    f.T = NewTransactionIdFromString(t)
-    f.Id.Decode(response.Id)
+    f.T = NewTransactionIdFromString(message.T)
+    f.Id.Decode(message.R.Id)
 
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
         node := ds.Node{}
-        node.ContactInfo.Decode(response.Nodes[offset:(offset + lengthNodeID)])
+        node.ContactInfo.Decode(message.R.Nodes[offset:(offset + lengthNodeID)])
         f.Nodes = append(f.Nodes, node)
     }
 }
@@ -57,10 +57,10 @@ type FindNodeRequest struct {
     Target ds.NodeId
 }
 
-func (f *FindNodeRequest) Decode(t string, a Answer) {
-    f.T = NewTransactionIdFromString(t)
-    f.Id.Decode(a.Id)
-    f.Target.Decode(a.Target)
+func (f *FindNodeRequest) Decode(message GenericMessage) {
+    f.T = NewTransactionIdFromString(message.T)
+    f.Id.Decode(message.A.Id)
+    f.Target.Decode(message.A.Target)
 }
 
 func (f FindNodeRequest) Encode() []byte {
