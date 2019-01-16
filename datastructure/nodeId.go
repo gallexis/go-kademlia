@@ -2,6 +2,7 @@ package datastructure
 
 import (
     "encoding/hex"
+    "fmt"
     "log"
     "math/rand"
 )
@@ -55,7 +56,7 @@ func (n NodeId) XOR(other NodeId) (newNodeID NodeId) {
 func NewNodeIdFromString(hash string) (n NodeId) {
     c, err := hex.DecodeString(hash)
     if err != nil {
-        log.Fatal(err.Error())
+        log.Fatal("NewNodeIdFromString", err.Error())
     }
     for i := 0; i < BytesInNodeID; i++ {
         n[i] = c[i]
@@ -104,7 +105,10 @@ func (n NodeId) Encode() (b []byte) {
 }
 
 func (n *NodeId) Decode(data []byte) {
+    if len(data) < len(n){
+        fmt.Println("ERROR PING DECODE", data)
+    }
     for i := range n {
-        n[i] = data[i]
+        n[i] = data[i] // todo : Unsafe
     }
 }

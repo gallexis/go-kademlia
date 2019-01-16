@@ -1,21 +1,29 @@
 package message
 
 import (
+    "fmt"
     ds "kademlia/datastructure"
 )
 
 type GetPeersResponse struct {
-    T TransactionId
-    Id     ds.NodeId
-    Token  Token
-    Values []string
+    T     TransactionId
+    Id    ds.NodeId
+    Token Token
+    Peers []ds.PeerContact
 }
 
 func (g *GetPeersResponse) Decode(message GenericMessage) {
+    fmt.Printf("INSIDE GetPeersResponse --> %+v <--", message.R)
     g.T = NewTransactionIdFromString(message.T)
     g.Id.Decode(message.R.Id)
     g.Token = message.R.Token
-    g.Values = message.R.Values
+
+    for _, value := range message.R.Values{
+        data := []byte(fmt.Sprintf("%s", value))
+        contact := ds.PeerContact{}
+        contact.Decode(data)
+        g.Peers = append(g.Peers, contact)
+    }
 }
 
 func (g GetPeersResponse) Encode() []byte {
@@ -25,7 +33,7 @@ func (g GetPeersResponse) Encode() []byte {
     q.R = map[string]interface{}{
         "id":     g.Id.Encode(),
         "token":  g.Token.String(),
-        "values": g.Values,
+        "values": g.Peers,
     }
 
     return MessageToBytes(q)

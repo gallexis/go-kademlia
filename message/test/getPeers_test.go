@@ -20,8 +20,8 @@ func TestGetPeersResponse(t *testing.T) {
     if !response.Id.Equals(randomNodeID) ||
         response.T.String() != tx.String() ||
         response.Token.String() != token.String() ||
-        response.Values[0] != values[0] ||
-        response.Values[1] != values[1]{
+        response.Peers[0] != values[0] ||
+        response.Peers[1] != values[1]{
         t.Error("")
     }
 }

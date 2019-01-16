@@ -5,28 +5,29 @@ import (
     log "github.com/sirupsen/logrus"
     "kademlia/datastructure"
     "kademlia/message"
+    "os"
     "time"
 )
 
 func (d *DHT) OnAnnouncePeerResponse(announcePeer *message.AnnouncePeersResponse) {
-    log.Info(announcePeer)
+    log.Info("OnAnnouncePeerResponse", announcePeer)
 }
 
 // Get Peers
 func (d *DHT) OnGetPeersResponse(infoHash datastructure.InfoHash, getPeers *message.GetPeersResponse) {
     log.Infof("OnGetPeersResponse----> : %+v", getPeers)
-
+    os.Exit(0)
 }
 
 func (d *DHT) OnGetPeersWithNodesResponse(infoHash datastructure.InfoHash, getPeersWithNodes *message.GetPeersResponseWithNodes) {
     log.Infof("getPeersWithNodes")
 
     for _, c := range getPeersWithNodes.Nodes {
-        d.routingTable.Insert(c, d.PingRequest)
+       d.routingTable.Insert(c, d.PingRequest)
     }
 
     if !d.peerStore.Contains(infoHash){
-        
+        d.getPeersByNodes(infoHash, getPeersWithNodes.Nodes)
     }
 }
 
@@ -59,9 +60,9 @@ func (d *DHT) getPeersByNodes(infoHash datastructure.InfoHash, nodes []datastruc
         timeout:           time.Now(),
         maxTries:          2,
         duplicates:        len(nodes),
-        CallbackOnTimeout: NewCallback(d.getPeersByNodes, infoHash, nodes),
+        CallbackOnTimeout: Callback{},//NewCallback(d.GetPeers, infoHash),
         Callback:          NewCallback(d.OnGetPeers, infoHash),
-        Caller:            Callback{},
+        Caller:            NewCallback(d.GetPeers, infoHash),
     })
 }
 
@@ -76,7 +77,6 @@ func (d *DHT) GetPeers(infoHash datastructure.InfoHash) {
 // FIND NODES
 func (d *DHT) OnFindNodesResponse(findNodes *message.FindNodeResponse) {
     //log.Println("findNodes")
-    //fmt.Println("findnodes")
 
     for _, c := range findNodes.Nodes {
         d.routingTable.Insert(c, d.PingRequest)

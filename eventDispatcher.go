@@ -7,7 +7,7 @@ import (
     "time"
 )
 
-const DefaultEventTimeout = time.Second * 12
+const DefaultEventTimeout = time.Second * 5
 
 type Callback struct {
     fn   reflect.Value

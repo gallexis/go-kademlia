@@ -24,3 +24,19 @@ func (c *Contact) Encode() []byte{
 	return b
 }
 
+type PeerContact struct {
+	IP     net.IP
+	Port   uint16
+}
+
+func (c *PeerContact) Decode(data []byte){
+	c.IP = net.IP(data[:4])
+	c.Port = binary.BigEndian.Uint16(data[4:])
+}
+
+func (c *PeerContact) Encode() (b []byte){
+	b = append(b, c.IP.To4()...)
+	binary.BigEndian.PutUint16(b, c.Port)
+	return
+}
+

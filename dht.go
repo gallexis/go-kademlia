@@ -127,7 +127,7 @@ func (d *DHT) Send(data []byte, contact ds.Contact) {
     destAddr := net.UDPAddr{IP: contact.IP, Port: int(contact.Port)}
     _, err := d.conn.WriteToUDP(data, &destAddr)
     if err != nil {
-        log.Error(err.Error())
+        log.Error("DHT.Send", err.Error())
     }
 }
 

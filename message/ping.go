@@ -11,7 +11,7 @@ type PingRequest struct {
 
 func (p *PingRequest) Decode(message GenericMessage) {
     p.T = NewTransactionIdFromString(message.T)
-    p.Id.Decode(message.R.Id)
+    p.Id.Decode(message.A.Id)
 }
 
 func (p PingRequest) Encode() []byte {

@@ -10,11 +10,11 @@ import (
 
 // GENERIC RECEIVE
 type Response struct {
-    Values []string `bencode:"values"`
-    Id     []byte   `bencode:"id"`
-    Nodes  []byte   `bencode:"nodes"`
-    Nodes6 []byte   `bencode:"nodes6"`
-    Token  []byte   `bencode:"token"`
+    Values []interface{} `bencode:"values"`
+    Id     []byte        `bencode:"id"`
+    Nodes  []byte        `bencode:"nodes"`
+    Nodes6 []byte        `bencode:"nodes6"`
+    Token  []byte        `bencode:"token"`
 }
 
 type Answer struct {
@@ -52,7 +52,7 @@ type ResponseMessage struct {
 func MessageToBytes(message interface{}) []byte {
     buffer, err := bencode.EncodeBytes(message)
     if err != nil {
-        log.Panic(err)
+        log.Panic("MessageToBytes", err)
     }
 
     return buffer
@@ -61,9 +61,10 @@ func MessageToBytes(message interface{}) []byte {
 func BytesToMessage(data []byte) (g GenericMessage, ok bool) {
     decoder := bencode.NewDecoder(bytes.NewBuffer(data))
     if err := decoder.Decode(&g); err != nil {
-        log.Error(err)
+        log.Error("BytesToMessage ", err)
         return
     }
+
     ok = true
     return
 }
@@ -86,14 +87,12 @@ func NewTransactionIdFromString(tx string) TransactionId {
     t := TransactionId{}
     t, err := hex.DecodeString(tx)
     if err != nil {
-        log.Errorf("Error when decoding from string: %v | %v | %v", err, tx, []byte(tx))
-        return []byte(tx)
+        return TransactionId(tx)
     }
     return t
 }
 
 type Token = TransactionId
-
 
 type Message interface {
     Encode() []byte
