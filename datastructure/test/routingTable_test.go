@@ -123,10 +123,10 @@ func TestRoutingTable_Get_withFullKB(t *testing.T) {
 	rt.Insert(contact3)
 	rt.Insert(contact4)
 
-	kb := rt.Get(contact1.NodeID)
+	kb := rt.GetK(contact1.NodeID)
 
 	if len(kb) != k || kb[0] != contact1 || kb[1] != contact2 {
-		t.Error("problem in Get")
+		t.Error("problem in GetK")
 	}
 }
 
@@ -145,7 +145,7 @@ func TestRoutingTable_Get_withoutFullKB(t *testing.T) {
 	rt.Insert(contact4)
 	rt.Insert(contact5)
 
-	kb := rt.Get(contact1.NodeID)
+	kb := rt.GetK(contact1.NodeID)
 
 	if len(kb) != k ||
 		kb[0] != contact1 ||
@@ -153,7 +153,7 @@ func TestRoutingTable_Get_withoutFullKB(t *testing.T) {
 		kb[2] != contact3 ||
 		kb[3] != contact5 ||
 		kb[4] != contact4 {
-		t.Error("problem in Get")
+		t.Error("problem in GetK")
 	}
 }
 
@@ -172,13 +172,13 @@ func TestRoutingTable_Get_FullTotalKB(t *testing.T) {
 	rt.Insert(contact4)
 	rt.Insert(contact5)
 
-	kb := rt.Get(contact1.NodeID)
+	kb := rt.GetK(contact1.NodeID)
 
 	if len(kb) != k ||
 		kb[0] != contact1 ||
 		kb[1] != contact2 ||
 		kb[2] != contact3 ||
 		kb[3] != contact5 {
-		t.Error("problem in Get")
+		t.Error("problem in GetK")
 	}
 }

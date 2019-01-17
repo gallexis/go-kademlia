@@ -166,7 +166,6 @@ func (d *DHT) Router(data []byte) {
         }
 
         msg.Decode(g)
-        fmt.Printf("Receive Query : %+v \n", msg)
 
     case "r":
         callback, exists := d.eventDispatcher.GetCallback(g.T)

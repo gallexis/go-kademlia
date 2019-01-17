@@ -2,7 +2,6 @@ package main
 
 import (
     "fmt"
-    "kademlia/datastructure"
     "math/rand"
     "time"
 )
@@ -23,13 +22,10 @@ func main() {
     dht.Receiver()
     dht.PopulateRT()
 
-    time.Sleep(time.Second * 10)
+    //time.Sleep(time.Second * 10)
 
-    dht.GetPeers(datastructure.NewNodeIdFromString("4EBF7D54EABA7380D46C05604B059FABAEA212F0"))
+    //dht.GetPeers(datastructure.NewNodeIdFromString("4EBF7D54EABA7380D46C05604B059FABAEA212F0"))
 
-
-    a := datastructure.Node{}
-    a.UpdateLastMessageReceived()
 
 
     fmt.Scanln()

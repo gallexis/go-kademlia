@@ -9,9 +9,9 @@ import (
 )
 
 type KBucket struct {
+    sync.Mutex
     Nodes *lru.Cache
     K     int
-    mutex sync.Mutex
     InsertDurationMax time.Duration
 }
 
@@ -23,12 +23,11 @@ func NewKBucket(k int) KBucket {
     return KBucket{
         Nodes: nodes,
         K:        k,
-        mutex:    sync.Mutex{},
         InsertDurationMax: 3 * time.Second,
     }
 }
 
-func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)){
+func (kb *KBucket) Insert(newNode *Node, pingNode func(chan bool)){
     newNodeId := newNode.NodeID
 
     if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft() {
@@ -44,7 +43,7 @@ func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)){
             log.Error("Peek not ok, node might have been removed (Mutex problem ?)")
             return
         }
-        oldestNode := oldestNodeInterface.(Node)
+        oldestNode := oldestNodeInterface.(*Node)
         if oldestNode.IsGood(){ // don't remove the node if we know it is good
             return
         }
@@ -64,6 +63,15 @@ func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)){
             kb.Nodes.Add(oldestNodeID, oldestNode) // if the oldest answers, put it back to the tail
             log.Info("add old node")
         }
+    }
+}
+
+func (kb KBucket) Get(nodeID NodeId) (*Node, bool) {
+    if value, exists := kb.Nodes.Peek(nodeID); exists {
+        node := value.(*Node)
+        return node, true
+    } else {
+        return &Node{}, false
     }
 }
 

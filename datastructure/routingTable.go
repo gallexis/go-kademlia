@@ -74,25 +74,25 @@ func (rt *RoutingTable) Insert(newNode Node, pingNode func(chan bool)) {
     xoredID := rt.selfNodeID.XOR(newNode.NodeID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].mutex.Lock()
-    rt.KBuckets[bucketNumber].Insert(newNode, pingNode)
+    rt.KBuckets[bucketNumber].Lock()
+    rt.KBuckets[bucketNumber].Insert(&newNode, pingNode)
     if bucketNumber.CloserThan(rt.ClosestBucketFilled) {
         rt.ClosestBucketFilled = bucketNumber
     }
-    rt.KBuckets[bucketNumber].mutex.Unlock()
+    rt.KBuckets[bucketNumber].Unlock()
 }
 
 func (rt *RoutingTable) GetRandomNodes(bucketPosition int) []Node {
-    rt.KBuckets[bucketPosition].mutex.Lock()
-    defer rt.KBuckets[bucketPosition].mutex.Unlock()
+    rt.KBuckets[bucketPosition].Lock()
+    defer rt.KBuckets[bucketPosition].Unlock()
 
     return rt.KBuckets[bucketPosition].GetRandomNodes(Alpha)
 }
 
 func (rt *RoutingTable) GetClosestNodes() (nodes []Node) {
     bucketNumber := rt.ClosestBucketFilled
-    rt.KBuckets[bucketNumber].mutex.Lock()
-    defer rt.KBuckets[bucketNumber].mutex.Unlock()
+    rt.KBuckets[bucketNumber].Lock()
+    defer rt.KBuckets[bucketNumber].Unlock()
 
     rt.fillNodesByBucketNumber(bucketNumber, &nodes)
 
@@ -106,12 +106,12 @@ func (rt *RoutingTable) GetClosestNodes() (nodes []Node) {
     return
 }
 
-func (rt *RoutingTable) Get(otherID NodeId) (nodes []Node) {
+func (rt *RoutingTable) GetK(otherID NodeId) (nodes []Node) {
     xoredID := rt.selfNodeID.XOR(otherID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].mutex.Lock()
-    defer rt.KBuckets[bucketNumber].mutex.Unlock()
+    rt.KBuckets[bucketNumber].Lock()
+    defer rt.KBuckets[bucketNumber].Unlock()
 
     rt.fillNodesByBucketNumber(bucketNumber, &nodes)
 
@@ -129,42 +129,54 @@ func (rt *RoutingTable) GetOne(otherID NodeId) (Node, bool) {
     xoredID := rt.selfNodeID.XOR(otherID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].mutex.Lock()
-    defer rt.KBuckets[bucketNumber].mutex.Unlock()
+    rt.KBuckets[bucketNumber].Lock()
+    defer rt.KBuckets[bucketNumber].Unlock()
 
-    value, exists := rt.KBuckets[bucketNumber].Nodes.Peek(otherID)
-    if exists {
-        return value.(Node), exists
-    } else {
-        return Node{}, exists
-    }
+    node, exists := rt.KBuckets[bucketNumber].Get(otherID)
+    return *node, exists
 }
 
-func (rt *RoutingTable) UpdateNodeStatus(otherID NodeId) bool {
-    xoredID := rt.selfNodeID.XOR(otherID)
+func (rt *RoutingTable) UpdateNodeStatus(node Node) (exists bool) {
+    xoredID := rt.selfNodeID.XOR(node.NodeID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].mutex.Lock()
-    defer rt.KBuckets[bucketNumber].mutex.Unlock()
+    rt.KBuckets[bucketNumber].Lock()
+    defer rt.KBuckets[bucketNumber].Unlock()
 
-    value, exists := rt.KBuckets[bucketNumber].Nodes.Peek(otherID)
-    if !exists {
+    if node, exists := rt.KBuckets[bucketNumber].Get(node.NodeID); exists{
+        node.UpdateLastMessageReceived()
+    }else{
         log.Error("Node doesn't exist")
-        return false
     }
 
-    node := value.(Node)
-    node.UpdateLastMessageReceived()
-    rt.KBuckets[bucketNumber].Nodes.Add(node.NodeID, node)
-    return true
+    return exists
+}
+
+func (rt *RoutingTable) UpdateLastRequestFindNode(node Node) (exists bool) {
+    xoredID := rt.selfNodeID.XOR(node.NodeID)
+    bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
+
+    rt.KBuckets[bucketNumber].Lock()
+    defer rt.KBuckets[bucketNumber].Unlock()
+
+    if node, exists := rt.KBuckets[bucketNumber].Get(node.NodeID); exists{
+        node.UpdateLastRequestFindNode()
+    }else{
+        log.Error("Node doesn't exist")
+    }
+
+    return exists
 }
 
 func (rt RoutingTable) fillNodesByBucketNumber(bucketNumber BucketPosition, nodes *[]Node) {
     nodesInterface := rt.KBuckets[bucketNumber].Nodes.Keys()
 
     for _, nodeID := range nodesInterface {
-        node, _ := rt.KBuckets[bucketNumber].Nodes.Peek(nodeID.(NodeId))
-        *nodes = append(*nodes, node.(Node))
+        if node, exists := rt.KBuckets[bucketNumber].Get(nodeID.(NodeId)); exists{
+            *nodes = append(*nodes, *node)
+        }else{
+            log.Error("Node doesn't exist")
+        }
     }
 }
 

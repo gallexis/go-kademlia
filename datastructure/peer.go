@@ -30,32 +30,35 @@ func (p *Peer) Decode(data []byte) {
     *p = NewPeer(ip, port)
 }
 
-func (p *Peer) Encode() (b []byte) {
+func (p Peer) Encode() (b []byte) {
     b = append(b, p.IP.To4()...)
     binary.BigEndian.PutUint16(b, p.Port)
     return
 }
 
-func (p *Peer) RequestFindNode() bool {
+func (p Peer) CanRequestFindNode() bool {
     now := time.Now()
 
     if p.LastFindNodeRequest.Add(time.Minute).After(now) {
         return false
     }
 
-    p.LastFindNodeRequest = now
     return true
 }
 
-func (p *Peer) IsGood() bool {
-    return p.LastMessageReceived.Add(time.Minute * 15).After(time.Now())
+func (p Peer) IsGood() bool {
+    return p.LastMessageReceived.Add(time.Minute * 2).After(time.Now())
+}
+
+func (p *Peer) UpdateLastRequestFindNode() {
+    p.LastFindNodeRequest = time.Now()
 }
 
 func (p *Peer) UpdateLastMessageReceived() {
     p.LastMessageReceived = time.Now()
 }
 
-func (p *Peer) Send(conn *net.UDPConn, data []byte) {
+func (p Peer) Send(conn *net.UDPConn, data []byte) {
     destAddr := net.UDPAddr{IP: p.IP, Port: int(p.Port)}
     _, err := conn.WriteToUDP(data, &destAddr)
     if err != nil {

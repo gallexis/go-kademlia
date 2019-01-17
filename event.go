@@ -12,23 +12,19 @@ func (d *DHT) OnAnnouncePeerResponse(announcePeer *message.AnnouncePeersResponse
     log.Info("OnAnnouncePeerResponse", announcePeer)
 }
 
-// Get Peers
+// GetK Peers
 func (d *DHT) OnGetPeersResponse(infoHash datastructure.InfoHash, getPeers *message.GetPeersResponse) {
-    log.Info("!!! OnGetPeersResponse !!!", getPeers.Peers)
+    log.Info("!!! OnGetPeersResponse !!!")
 
     d.peerStore.Add(infoHash, getPeers.Peers)
-
-    fmt.Println("Display peerstore : ", infoHash, d.peerStore.Get(infoHash))
 }
 
 func (d *DHT) OnGetPeersWithNodesResponse(infoHash datastructure.InfoHash, getPeersWithNodes *message.GetPeersResponseWithNodes) {
-    log.Infof("getPeersWithNodes")
+    log.Debug("getPeersWithNodes")
 
     for _, c := range getPeersWithNodes.Nodes {
         d.routingTable.Insert(c, d.PingRequest)
     }
-
-    fmt.Println("contains? ", infoHash, d.peerStore.Contains(infoHash))
 
     if !d.peerStore.Contains(infoHash) {
         d.getPeersByNodes(infoHash, getPeersWithNodes.Nodes)
@@ -70,7 +66,7 @@ func (d *DHT) getPeersByNodes(infoHash datastructure.InfoHash, nodes []datastruc
 }
 
 func (d *DHT) GetPeers(infoHash datastructure.InfoHash) {
-    nodes := d.routingTable.Get(infoHash)
+    nodes := d.routingTable.GetK(infoHash)
     d.getPeersByNodes(infoHash, nodes)
 }
 
@@ -88,17 +84,25 @@ func (d *DHT) OnFindNodesResponse(findNodes *message.FindNodeResponse) {
 func (d *DHT) PopulateRT() {
     closestNodes := d.routingTable.GetClosestNodes()
     tx := message.NewTransactionId()
+    totalGoodNodes := len(closestNodes)
 
     for _, node := range closestNodes {
+        if !node.CanRequestFindNode(){
+            totalGoodNodes -= 1
+            continue
+        }
         findNodeRequest := message.FindNodeRequest{
             T:      tx,
             Id:     d.selfNodeID,
             Target: d.selfNodeID,
         }
         node.Send(d.conn, findNodeRequest.Encode())
+        d.routingTable.UpdateLastRequestFindNode(node)
     }
 
-    if d.routingTable.ClosestBucketFilled < MinBucketFilled {
+    fmt.Println("populate >>>> ", totalGoodNodes, d.routingTable.ClosestBucketFilled)
+
+    if totalGoodNodes > 0 && d.routingTable.ClosestBucketFilled < 158{
         d.eventDispatcher.AddEvent(tx.String(), Event{
             timeout:           time.Now(),
             maxTries:          1,
@@ -117,14 +121,14 @@ func (d *DHT) PopulateRT() {
 func (d *DHT) OnPingResponse(ping *message.PingResponse) {
     log.Infof("OnPingResponse: %+v", d.pingPool)
 
-    exists := d.routingTable.UpdateNodeStatus(ping.Id)
-    if !exists {
-        return
-    }
-
-    if c, ok := d.pingPool[ping.T.String()]; ok {
-        c <- true
-    }
+    //exists := d.routingTable.UpdateNodeStatus(ping.Id)
+    //if !exists {
+    //    return
+    //}
+    //
+    //if c, ok := d.pingPool[ping.T.String()]; ok {
+    //    c <- true
+    //}
 }
 
 func (d *DHT) PingRequest(pingChan chan bool) {
