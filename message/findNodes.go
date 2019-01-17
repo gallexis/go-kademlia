@@ -23,7 +23,7 @@ func (f *FindNodeResponse) Decode(message GenericMessage) {
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
         node := ds.Node{}
-        node.ContactInfo.Decode(message.R.Nodes[offset:(offset + lengthNodeID)])
+        node.Decode(message.R.Nodes[offset:(offset + lengthNodeID)])
         f.Nodes = append(f.Nodes, node)
     }
 }
@@ -40,7 +40,7 @@ func (f FindNodeResponse) Encode() []byte {
     q.Y = "r"
 
     for i := 0; i < numberOfNodes; i++ {
-        byteNodes = append(byteNodes, f.Nodes[i].ContactInfo.Encode()...)
+        byteNodes = append(byteNodes, f.Nodes[i].Encode()...)
     }
 
     q.R = map[string]interface{}{

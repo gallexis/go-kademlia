@@ -65,7 +65,7 @@ type Dispatcher struct {
 func NewDispatcher() Dispatcher {
     return Dispatcher{
         out:  make(chan bool),
-        Tick: time.Tick(time.Second * 5),
+        Tick: time.Tick(time.Second * 4),
         Map:  make(map[string]Event),
     }
 }

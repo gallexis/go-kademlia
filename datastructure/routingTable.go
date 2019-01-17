@@ -66,12 +66,12 @@ func (rt *RoutingTable) DisplayBucket(bucketNumber int) string {
 }
 
 func (rt *RoutingTable) Insert(newNode Node, pingNode func(chan bool)) {
-    if newNode.ContactInfo.NodeID.Equals(rt.selfNodeID) {
+    if newNode.NodeID.Equals(rt.selfNodeID) {
         log.Debug("Found myself")
         return
     }
 
-    xoredID := rt.selfNodeID.XOR(newNode.ContactInfo.NodeID)
+    xoredID := rt.selfNodeID.XOR(newNode.NodeID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
     rt.KBuckets[bucketNumber].mutex.Lock()
@@ -109,8 +109,6 @@ func (rt *RoutingTable) GetClosestNodes() (nodes []Node) {
 func (rt *RoutingTable) Get(otherID NodeId) (nodes []Node) {
     xoredID := rt.selfNodeID.XOR(otherID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
-
-    fmt.Println("BUCKET NUMBER:", bucketNumber)
 
     rt.KBuckets[bucketNumber].mutex.Lock()
     defer rt.KBuckets[bucketNumber].mutex.Unlock()
@@ -157,7 +155,7 @@ func (rt *RoutingTable) UpdateNodeStatus(otherID NodeId) bool {
 
     node := value.(Node)
     node.UpdateLastMessageReceived()
-    rt.KBuckets[bucketNumber].Nodes.Add(node.ContactInfo.NodeID, node)
+    rt.KBuckets[bucketNumber].Nodes.Add(node.NodeID, node)
     return true
 }
 

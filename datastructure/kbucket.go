@@ -29,7 +29,7 @@ func NewKBucket(k int) KBucket {
 }
 
 func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)){
-    newNodeId := newNode.ContactInfo.NodeID
+    newNodeId := newNode.NodeID
 
     if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft() {
         kb.Nodes.Add(newNodeId, newNode)
@@ -49,7 +49,7 @@ func (kb *KBucket) Insert(newNode Node, pingNode func(chan bool)){
             return
         }
 
-        oldestNodeID := oldestNode.ContactInfo.NodeID
+        oldestNodeID := oldestNode.NodeID
         pingChan := make(chan bool)
         tick := time.Tick(kb.InsertDurationMax)
 

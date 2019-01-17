@@ -5,7 +5,6 @@ import (
     log "github.com/sirupsen/logrus"
     "kademlia/datastructure"
     "kademlia/message"
-    "os"
     "time"
 )
 
@@ -15,18 +14,23 @@ func (d *DHT) OnAnnouncePeerResponse(announcePeer *message.AnnouncePeersResponse
 
 // Get Peers
 func (d *DHT) OnGetPeersResponse(infoHash datastructure.InfoHash, getPeers *message.GetPeersResponse) {
-    log.Infof("OnGetPeersResponse----> : %+v", getPeers)
-    os.Exit(0)
+    log.Info("!!! OnGetPeersResponse !!!", getPeers.Peers)
+
+    d.peerStore.Add(infoHash, getPeers.Peers)
+
+    fmt.Println("Display peerstore : ", infoHash, d.peerStore.Get(infoHash))
 }
 
 func (d *DHT) OnGetPeersWithNodesResponse(infoHash datastructure.InfoHash, getPeersWithNodes *message.GetPeersResponseWithNodes) {
     log.Infof("getPeersWithNodes")
 
     for _, c := range getPeersWithNodes.Nodes {
-       d.routingTable.Insert(c, d.PingRequest)
+        d.routingTable.Insert(c, d.PingRequest)
     }
 
-    if !d.peerStore.Contains(infoHash){
+    fmt.Println("contains? ", infoHash, d.peerStore.Contains(infoHash))
+
+    if !d.peerStore.Contains(infoHash) {
         d.getPeersByNodes(infoHash, getPeersWithNodes.Nodes)
     }
 }
@@ -44,7 +48,6 @@ func (d *DHT) OnGetPeers(infoHash datastructure.InfoHash, msg message.Message) {
 }
 
 func (d *DHT) getPeersByNodes(infoHash datastructure.InfoHash, nodes []datastructure.Node) {
-    fmt.Println("Inside Getpeers")
     tx := message.NewTransactionId()
 
     for _, node := range nodes {
@@ -53,21 +56,20 @@ func (d *DHT) getPeersByNodes(infoHash datastructure.InfoHash, nodes []datastruc
             Id:       d.selfNodeID,
             InfoHash: infoHash,
         }
-        d.Send(getPeersRequest.Encode(), node.ContactInfo)
+        node.Send(d.conn, getPeersRequest.Encode())
     }
 
     d.eventDispatcher.AddEvent(tx.String(), Event{
         timeout:           time.Now(),
-        maxTries:          2,
+        maxTries:          1,
         duplicates:        len(nodes),
-        CallbackOnTimeout: Callback{},//NewCallback(d.GetPeers, infoHash),
+        CallbackOnTimeout: Callback{},
         Callback:          NewCallback(d.OnGetPeers, infoHash),
-        Caller:            NewCallback(d.GetPeers, infoHash),
+        Caller:            Callback{},
     })
 }
 
 func (d *DHT) GetPeers(infoHash datastructure.InfoHash) {
-    fmt.Println("Inside Getpeers")
     nodes := d.routingTable.Get(infoHash)
     d.getPeersByNodes(infoHash, nodes)
 }
@@ -76,7 +78,7 @@ func (d *DHT) GetPeers(infoHash datastructure.InfoHash) {
 
 // FIND NODES
 func (d *DHT) OnFindNodesResponse(findNodes *message.FindNodeResponse) {
-    //log.Println("findNodes")
+    //log.Debug("findNodes")
 
     for _, c := range findNodes.Nodes {
         d.routingTable.Insert(c, d.PingRequest)
@@ -93,7 +95,7 @@ func (d *DHT) PopulateRT() {
             Id:     d.selfNodeID,
             Target: d.selfNodeID,
         }
-        d.Send(findNodeRequest.Encode(), node.ContactInfo)
+        node.Send(d.conn, findNodeRequest.Encode())
     }
 
     if d.routingTable.ClosestBucketFilled < MinBucketFilled {
@@ -133,10 +135,22 @@ func (d *DHT) PingRequest(pingChan chan bool) {
     }
     _, err := d.conn.Write(pingRequest.Encode())
     if err != nil {
-        //log.Error("Failed to send ping request")
+        log.Error("Failed to send ping request to ", )
         return
     }
     d.pingPool[tx.String()] = pingChan
+}
+
+func (d *DHT) OnPingRequest(msg message.PingRequest) {
+    pingResponse := message.PingResponse{
+        T:  msg.T,
+        Id: d.selfNodeID,
+    }
+    _, err := d.conn.Write(pingResponse.Encode())
+    if err != nil {
+        log.Error("Failed to send ping response")
+        return
+    }
 }
 
 //----------------------------------------

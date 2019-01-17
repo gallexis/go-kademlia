@@ -9,18 +9,17 @@ type GetPeersResponse struct {
     T     TransactionId
     Id    ds.NodeId
     Token Token
-    Peers []ds.PeerContact
+    Peers []ds.Peer
 }
 
 func (g *GetPeersResponse) Decode(message GenericMessage) {
-    fmt.Printf("INSIDE GetPeersResponse --> %+v <--", message.R)
     g.T = NewTransactionIdFromString(message.T)
     g.Id.Decode(message.R.Id)
     g.Token = message.R.Token
 
     for _, value := range message.R.Values{
         data := []byte(fmt.Sprintf("%s", value))
-        contact := ds.PeerContact{}
+        contact := ds.Peer{}
         contact.Decode(data)
         g.Peers = append(g.Peers, contact)
     }
@@ -59,7 +58,7 @@ func (g *GetPeersResponseWithNodes) Decode(message GenericMessage) {
     for i := 0; i < numberOfNodes; i++ {
         offset := i * lengthNodeID
         node := ds.Node{}
-        node.ContactInfo.Decode(message.R.Nodes[offset:(offset + lengthNodeID)])
+        node.Decode(message.R.Nodes[offset:(offset + lengthNodeID)])
         g.Nodes = append(g.Nodes, node)
     }
 }
@@ -72,7 +71,7 @@ func (g GetPeersResponseWithNodes) Encode() []byte {
     }
 
     for i := 0; i < numberOfNodes; i++ {
-        byteNodes = append(byteNodes, g.Nodes[i].ContactInfo.Encode()...)
+        byteNodes = append(byteNodes, g.Nodes[i].Encode()...)
     }
 
     q := ResponseMessage{}

@@ -1,41 +1,29 @@
 package datastructure
 
 import (
-    "sync"
-    "time"
+    "net"
 )
 
 type Node struct {
-    ContactInfo         Contact
-    LastMessageReceived time.Time
-    LastFindNodeRequest time.Time
-    mutex               sync.Mutex
+    Peer
+    NodeID              NodeId
 }
 
-func NewNode(contactInfo Contact) Node {
+func NewNode(ip net.IP, port uint16, nodeId NodeId) Node {
     return Node{
-        ContactInfo: contactInfo,
+        Peer:   NewPeer(ip, port),
+        NodeID: nodeId,
     }
 }
 
-func (n *Node) RequestFindNode() bool {
-    n.mutex.Lock()
-    defer n.mutex.Unlock()
+func (n *Node) Decode(data []byte){
+    nodeID := NodeId{}
+    nodeID.Decode(data[:20])
 
-    now := time.Now()
-
-    if n.LastFindNodeRequest.Add(time.Minute).After(now) {
-        return false
-    }
-
-    n.LastFindNodeRequest = now
-    return true
+    n.NodeID = nodeID
+    n.Peer.Decode(data[20:])
 }
 
-func (n *Node) IsGood() bool {
-    return n.LastMessageReceived.Add(time.Minute * 15).After(time.Now())
-}
-
-func (n *Node) UpdateLastMessageReceived() {
-    n.LastMessageReceived = time.Now()
+func (n *Node) Encode() []byte{
+    return append(n.NodeID.Encode(), n.Peer.Encode()...)
 }

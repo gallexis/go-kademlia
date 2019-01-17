@@ -48,7 +48,7 @@ func NewCustomDHT(nid ds.NodeId, bootstrapNodes []string, conn *net.UDPConn) DHT
         pingPool:           make(map[string]chan bool),
         conn:               conn,
         bootstrapNodes:     bootstrapNodes,
-        peerStore:          nil,
+        peerStore:          make(ds.PeerStore),
         eventDispatcher:    NewDispatcher(),
     }
 }
@@ -123,13 +123,15 @@ func (d *DHT) Receiver() {
     }()
 }
 
-func (d *DHT) Send(data []byte, contact ds.Contact) {
-    destAddr := net.UDPAddr{IP: contact.IP, Port: int(contact.Port)}
-    _, err := d.conn.WriteToUDP(data, &destAddr)
-    if err != nil {
-        log.Error("DHT.Send", err.Error())
+func (d *DHT) ManageRequest(request message.Message){
+    switch v := request.(type) {
+    case *message.PingRequest:
+        d.OnPingRequest(*v)
+    default:
+        fmt.Println("Unknown request")
     }
 }
+
 
 func (d *DHT) Router(data []byte) {
     var msg message.Message
