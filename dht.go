@@ -9,18 +9,14 @@ import (
     "time"
 )
 
-const (
-    MinBucketFilled = 20
-)
-
 type DHT struct {
     selfNodeID         ds.NodeId
     routingTable       ds.RoutingTable
-    pingPool           map[string]chan bool
     conn               *net.UDPConn
     bootstrapNodes     []string
     peerStore          ds.PeerStore
     eventDispatcher    Dispatcher
+    PingPool           chan ds.Node
 }
 
 func NewDHT() DHT {
@@ -45,7 +41,6 @@ func NewCustomDHT(nid ds.NodeId, bootstrapNodes []string, conn *net.UDPConn) DHT
     return DHT{
         selfNodeID:         nid,
         routingTable:       ds.NewRoutingTable(nid),
-        pingPool:           make(map[string]chan bool),
         conn:               conn,
         bootstrapNodes:     bootstrapNodes,
         peerStore:          make(ds.PeerStore),
@@ -101,7 +96,7 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
 
     // Update routing table with nodes received
     for _, c := range findNodes.Nodes {
-        d.routingTable.Insert(c, func(chan bool) {})
+        d.routingTable.Insert(c, true)
     }
 
     return true
@@ -112,28 +107,65 @@ func (d *DHT) Receiver() {
         buffer := make([]byte, 1024)
 
         for {
-            n, _, err := d.conn.ReadFromUDP(buffer)
+            n, udpAddr, err := d.conn.ReadFromUDP(buffer)
             if err != nil {
                 log.Printf("Some error %v", err)
                 time.Sleep(time.Second * 1)
                 continue
             }
-            d.Router(buffer[:n])
+            go d.Router(buffer[:n], *udpAddr)
         }
     }()
 }
 
-func (d *DHT) ManageRequest(request message.Message){
+func (d *DHT) ManageRequest(request message.Message, addr net.UDPAddr){
     switch v := request.(type) {
     case *message.PingRequest:
-        d.OnPingRequest(*v)
+        d.OnPingRequest(v, addr)
+    case *message.FindNodeRequest:
+        d.OnFindNodeRequest(v, addr)
+    case *message.GetPeersRequest:
+        d.OnGetPeersRequest(v, addr)
+    case *message.AnnouncePeersRequest:
+        d.OnAnnouncePeerRequest(v, addr)
     default:
         fmt.Println("Unknown request")
     }
 }
 
 
-func (d *DHT) Router(data []byte) {
+func (d *DHT) PendingPingPool(){
+    go func() {
+        for{
+            select {
+            case node := <-d.PingPool:
+                _, _ = d.routingTable.Insert(node, true)
+            }
+        }
+    }()
+}
+
+func (d *DHT) Insert(node ds.Node){
+    ok, err := d.routingTable.Insert(node, false)
+    if ok{
+        return
+    } else if err != nil {
+        log.Error(err)
+        return
+    }
+
+    // Not inserted because we are waiting for a ping response
+    // add in pending pool
+    // send ping
+    tx := message.NewTransactionId()
+    d.eventDispatcher.AddEvent(tx.String(), Event{
+        timeout:           time.Now(),
+        maxTries:          1,
+        Callback: NewCallback(d.OnPingResponse, node),
+    })
+}
+
+func (d *DHT) Router(data []byte, addr net.UDPAddr) {
     var msg message.Message
 
     g, ok := message.BytesToMessage(data)
@@ -166,6 +198,7 @@ func (d *DHT) Router(data []byte) {
         }
 
         msg.Decode(g)
+        d.ManageRequest(msg, addr)
 
     case "r":
         callback, exists := d.eventDispatcher.GetCallback(g.T)
@@ -191,7 +224,7 @@ func (d *DHT) Router(data []byte) {
         }
 
         msg.Decode(g)
-        callback.Call(msg)
+        callback.Call(msg, addr)
 
     case "e":
         log.Info("Error:", g.E)

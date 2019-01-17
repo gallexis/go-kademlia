@@ -1,6 +1,8 @@
 package datastructure
 
 import (
+    "errors"
+    "fmt"
     "github.com/hashicorp/golang-lru"
     log "github.com/sirupsen/logrus"
     "math/rand"
@@ -10,8 +12,8 @@ import (
 
 type KBucket struct {
     sync.Mutex
-    Nodes *lru.Cache
-    K     int
+    Nodes             *lru.Cache
+    K                 int
     InsertDurationMax time.Duration
 }
 
@@ -21,49 +23,37 @@ func NewKBucket(k int) KBucket {
         log.Fatalln(err)
     }
     return KBucket{
-        Nodes: nodes,
-        K:        k,
+        Nodes:             nodes,
+        K:                 k,
         InsertDurationMax: 3 * time.Second,
     }
 }
 
-func (kb *KBucket) Insert(newNode *Node, pingNode func(chan bool)){
+func (kb *KBucket) Insert(newNode *Node, forceInsert bool) (bool, error) {
     newNodeId := newNode.NodeID
 
-    if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft() {
+    if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft(){
         kb.Nodes.Add(newNodeId, newNode)
 
     } else if kb.isInBucket(newNodeId) {
-        kb.Nodes.Get(newNodeId) // put in top of LRU
+        kb.Nodes.Get(newNodeId) // put at tail of LRU
 
     } else { // Insert when full KB
         keys := kb.Nodes.Keys()
         oldestNodeInterface, ok := kb.Nodes.Peek(keys[0])
-        if !ok{
-            log.Error("Peek not ok, node might have been removed (Mutex problem ?)")
-            return
+        if !ok {
+            return false, errors.New("peek not ok, node might have been removed (Mutex problem ?)")
         }
+
         oldestNode := oldestNodeInterface.(*Node)
-        if oldestNode.IsGood(){ // don't remove the node if we know it is good
-            return
+        if oldestNode.IsGood() {
+            return false, nil
         }
-
-        oldestNodeID := oldestNode.NodeID
-        pingChan := make(chan bool)
-        tick := time.Tick(kb.InsertDurationMax)
-
-        pingNode(pingChan)
-
-        select {
-        case <-tick:
-            kb.Nodes.Add(newNodeId, newNode) //Add will remove oldestContact then add newNode
-            //log.Println("add new")
-        case <-pingChan:
-            oldestNode.UpdateLastMessageReceived()
-            kb.Nodes.Add(oldestNodeID, oldestNode) // if the oldest answers, put it back to the tail
-            log.Info("add old node")
-        }
+fmt.Println("FORCE INSEERT")
+        kb.Nodes.Add(newNodeId, newNode)
     }
+
+    return true, nil
 }
 
 func (kb KBucket) Get(nodeID NodeId) (*Node, bool) {
@@ -81,7 +71,7 @@ func (kb KBucket) GetRandomNodes(alpha int) []Node {
     var nodes []Node
 
     for i, key := range rand.Perm(contactsLength) {
-        if i >= alpha{
+        if i >= alpha {
             break
         }
         node, _ := kb.Nodes.Peek(keys[key].(NodeId))

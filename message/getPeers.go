@@ -29,10 +29,16 @@ func (g GetPeersResponse) Encode() []byte {
     q := ResponseMessage{}
     q.T = g.T.String()
     q.Y = "r"
+
+    var peers []byte
+    for _,peer := range g.Peers{
+        peers = append(peers, peer.Encode()...)
+    }
+
     q.R = map[string]interface{}{
         "id":     g.Id.Encode(),
         "token":  g.Token.String(),
-        "values": g.Peers,
+        "values": peers,
     }
 
     return MessageToBytes(q)

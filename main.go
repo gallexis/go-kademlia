@@ -4,16 +4,12 @@ import (
     "fmt"
     "math/rand"
     "time"
+    "kademlia/datastructure"
 )
 
 func init() {
     rand.Seed(time.Now().UTC().UnixNano())
 }
-
-/*
-    gerer les données entrantes (data + IP/port)
-    gerer la structure des nodes (update)
- */
 
 func main() {
     dht := NewDHT()
@@ -22,11 +18,9 @@ func main() {
     dht.Receiver()
     dht.PopulateRT()
 
-    //time.Sleep(time.Second * 10)
+    time.Sleep(time.Second * 10)
 
-    //dht.GetPeers(datastructure.NewNodeIdFromString("4EBF7D54EABA7380D46C05604B059FABAEA212F0"))
-
-
+    dht.GetPeers(datastructure.NewNodeIdFromString("4EBF7D54EABA7380D46C05604B059FABAEA212F0"))
 
     fmt.Scanln()
 }

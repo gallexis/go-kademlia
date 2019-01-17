@@ -19,11 +19,11 @@ func (c Callback) isSet() bool{
 }
 
 func (c *Callback) Call(args ...interface{}) {
-    defer func() {
-        if r := recover(); r != nil {
-            fmt.Println("Recovered in Call", r)
-        }
-    }()
+    //defer func() {
+    //    if r := recover(); r != nil {
+    //        fmt.Println("Recovered in Call", r)
+    //    }
+    //}()
 
     if c.fn.Kind() != reflect.Func {
         return

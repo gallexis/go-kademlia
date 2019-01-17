@@ -47,7 +47,7 @@ func (p Peer) CanRequestFindNode() bool {
 }
 
 func (p Peer) IsGood() bool {
-    return p.LastMessageReceived.Add(time.Minute * 2).After(time.Now())
+    return p.LastMessageReceived.Add(time.Minute * 15).After(time.Now())
 }
 
 func (p *Peer) UpdateLastRequestFindNode() {

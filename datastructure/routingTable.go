@@ -1,6 +1,7 @@
 package datastructure
 
 import (
+    "errors"
     "fmt"
     log "github.com/sirupsen/logrus"
     "math"
@@ -47,9 +48,11 @@ func NewRoutingTableWithDetails(nodeID NodeId, k int, alpha int) RoutingTable {
     return rt
 }
 
-func (rt RoutingTable) String() string {
-    var content string
+func (rt *RoutingTable) PendingPings(node Node){
 
+}
+
+func (rt RoutingTable) String() (content string) {
     content += "----Display RT--------------------------\n"
     for i, b := range rt.KBuckets {
         if b.Nodes.Len() > 0 {
@@ -65,21 +68,23 @@ func (rt *RoutingTable) DisplayBucket(bucketNumber int) string {
     return fmt.Sprint(bucketNumber, ": ", rt.KBuckets[bucketNumber].Nodes.Len())
 }
 
-func (rt *RoutingTable) Insert(newNode Node, pingNode func(chan bool)) {
+func (rt *RoutingTable) Insert(newNode Node, force bool) (bool, error){
     if newNode.NodeID.Equals(rt.selfNodeID) {
-        log.Debug("Found myself")
-        return
+        return false, errors.New("found myself")
     }
 
     xoredID := rt.selfNodeID.XOR(newNode.NodeID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
     rt.KBuckets[bucketNumber].Lock()
-    rt.KBuckets[bucketNumber].Insert(&newNode, pingNode)
-    if bucketNumber.CloserThan(rt.ClosestBucketFilled) {
+    defer rt.KBuckets[bucketNumber].Unlock()
+
+    ok, err := rt.KBuckets[bucketNumber].Insert(&newNode, force)
+    if ok && bucketNumber.CloserThan(rt.ClosestBucketFilled) {
         rt.ClosestBucketFilled = bucketNumber
     }
-    rt.KBuckets[bucketNumber].Unlock()
+
+    return ok, err
 }
 
 func (rt *RoutingTable) GetRandomNodes(bucketPosition int) []Node {
@@ -136,14 +141,14 @@ func (rt *RoutingTable) GetOne(otherID NodeId) (Node, bool) {
     return *node, exists
 }
 
-func (rt *RoutingTable) UpdateNodeStatus(node Node) (exists bool) {
-    xoredID := rt.selfNodeID.XOR(node.NodeID)
+func (rt *RoutingTable) UpdateNodeStatus(nodeId NodeId) (exists bool) {
+    xoredID := rt.selfNodeID.XOR(nodeId)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
     rt.KBuckets[bucketNumber].Lock()
     defer rt.KBuckets[bucketNumber].Unlock()
 
-    if node, exists := rt.KBuckets[bucketNumber].Get(node.NodeID); exists{
+    if node, exists := rt.KBuckets[bucketNumber].Get(nodeId); exists{
         node.UpdateLastMessageReceived()
     }else{
         log.Error("Node doesn't exist")
