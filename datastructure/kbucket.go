@@ -15,6 +15,8 @@ type KBucket struct {
     Nodes             *lru.Cache
     K                 int
     InsertDurationMax time.Duration
+    LastSeenNode      time.Time
+    Tick         <-chan time.Time
 }
 
 func NewKBucket(k int) KBucket {
@@ -26,13 +28,45 @@ func NewKBucket(k int) KBucket {
         Nodes:             nodes,
         K:                 k,
         InsertDurationMax: 3 * time.Second,
+        LastSeenNode:      time.Time{},
+        Tick:              time.Tick(time.Second * 80),
     }
 }
 
-func (kb *KBucket) Insert(newNode *Node, forceInsert bool) (bool, error) {
-    newNodeId := newNode.NodeID
+func (kb *KBucket) RefreshLoop(pingRequests chan Node) {
+    go func() {
+        for {
+            select {
 
-    if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft(){
+            case <-kb.Tick:
+                keys := kb.Nodes.Keys()
+
+                if len(keys) <= 0{
+                    continue
+                }
+
+                oldestNodeInterface, ok := kb.Nodes.Peek(keys[0]) // todo: UNSAFE
+                if !ok {
+                    log.Error("Error Peeking node")
+                    continue
+                }
+
+                oldestNode := oldestNodeInterface.(*Node)
+                if !oldestNode.IsGood() {
+                    fmt.Print(time.Now().Clock())
+                    fmt.Println("- Refreshing :", oldestNode.NodeID)
+                    pingRequests <- *oldestNode
+                }
+            }
+        }
+    }()
+}
+
+func (kb *KBucket) Insert(newNode *Node, forceInsert bool) (inserted bool, err error) {
+    newNodeId := newNode.NodeID
+    inserted = true
+
+    if !kb.isInBucket(newNodeId) && kb.freeSpaceLeft() {
         kb.Nodes.Add(newNodeId, newNode)
 
     } else if kb.isInBucket(newNodeId) {
@@ -40,24 +74,44 @@ func (kb *KBucket) Insert(newNode *Node, forceInsert bool) (bool, error) {
 
     } else { // Insert when full KB
         keys := kb.Nodes.Keys()
-        oldestNodeInterface, ok := kb.Nodes.Peek(keys[0])
+        if len(keys) <= 0{
+            log.Error("should not be here")
+            return
+        }
+        oldestNodeInterface, ok := kb.Nodes.Peek(keys[0]) // todo: UNSAFE
         if !ok {
-            return false, errors.New("peek not ok, node might have been removed (Mutex problem ?)")
+            inserted = false
+            err = errors.New("peek not ok, node might have been removed (Mutex problem ?)")
+            return
+        }
+
+        if forceInsert{
+            fmt.Println("FORCE INSERT")
+            kb.Nodes.Add(newNodeId, newNode)
+            return
         }
 
         oldestNode := oldestNodeInterface.(*Node)
-        if oldestNode.IsGood() {
+        if !oldestNode.IsGood() {
             return false, nil
         }
-fmt.Println("FORCE INSEERT")
-        kb.Nodes.Add(newNodeId, newNode)
     }
 
-    return true, nil
+    kb.LastSeenNode = time.Now()
+    return
+}
+
+func (kb KBucket) Peek(nodeID NodeId) (*Node, bool) {
+    if value, exists := kb.Nodes.Peek(nodeID); exists {
+        node := value.(*Node)
+        return node, true
+    } else {
+        return &Node{}, false
+    }
 }
 
 func (kb KBucket) Get(nodeID NodeId) (*Node, bool) {
-    if value, exists := kb.Nodes.Peek(nodeID); exists {
+    if value, exists := kb.Nodes.Get(nodeID); exists {
         node := value.(*Node)
         return node, true
     } else {

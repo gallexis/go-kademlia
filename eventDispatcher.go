@@ -2,6 +2,7 @@ package main
 
 import (
     "fmt"
+    "github.com/murlokswarm/log"
     "reflect"
     "sync"
     "time"
@@ -19,11 +20,11 @@ func (c Callback) isSet() bool{
 }
 
 func (c *Callback) Call(args ...interface{}) {
-    //defer func() {
-    //    if r := recover(); r != nil {
-    //        fmt.Println("Recovered in Call", r)
-    //    }
-    //}()
+    defer func() {
+       if r := recover(); r != nil {
+           fmt.Println("Recovered in Call", r)
+       }
+    }()
 
     if c.fn.Kind() != reflect.Func {
         return
@@ -113,17 +114,24 @@ func (d *Dispatcher) Start() {
 }
 
 func (d *Dispatcher) AddEvent(tx string, event Event) {
+    if event.maxTries > 1 && !event.Caller.isSet(){
+        log.Warn("if maxTries is > 1, you must set a Caller Callback")
+    }
+    d.Lock()
     d.Map[tx] = event
+    d.Unlock()
 }
 
 func (d *Dispatcher) GetCallback(tx string) (Callback, bool) {
+    d.Lock()
+    defer d.Unlock()
+
     v, ok := d.Map[tx]
     if ok {
         if v.duplicates <= 0 {
             fmt.Println("delete event (GetCallback)", v.Callback.fn.String())
             delete(d.Map, tx)
         } else {
-            fmt.Println("duplicates-1 : ", v.duplicates)
             v.duplicates -= 1
             d.Map[tx] = v
         }

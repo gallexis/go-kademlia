@@ -79,7 +79,7 @@ func (d *DHT) GetPeers(infoHash ds.InfoHash) {
 
 // FIND NODES
 func (d *DHT) OnFindNodesResponse(findNodes *message.FindNodeResponse, addr net.UDPAddr) {
-    //log.Debug("findNodes")
+    //log.Printf("findNodes %+v", addr)
 
     for _, c := range findNodes.Nodes {
         d.Insert(c)
@@ -92,7 +92,7 @@ func (d *DHT) PopulateRT() {
     totalGoodNodes := len(closestNodes)
 
     for _, node := range closestNodes {
-        if !node.CanRequestFindNode(){
+        if !node.CanRequestFindNode() {
             totalGoodNodes -= 1
             continue
         }
@@ -105,7 +105,7 @@ func (d *DHT) PopulateRT() {
         d.routingTable.UpdateLastRequestFindNode(node)
     }
 
-    if totalGoodNodes > 0 && d.routingTable.ClosestBucketFilled < 158{
+    if totalGoodNodes > 0 && d.routingTable.ClosestBucketFilled < 158 {
         d.eventDispatcher.AddEvent(tx.String(), Event{
             timeout:           time.Now(),
             maxTries:          1,
@@ -117,11 +117,12 @@ func (d *DHT) PopulateRT() {
     }
     fmt.Println(d.routingTable.ClosestBucketFilled, d.routingTable)
 }
+
 //----------------------------------------
 
 // PING
-func (d *DHT) OnPingResponse(node ds.Node ,ping *message.PingResponse, addr net.UDPAddr) {
-    log.Info("OnPingResponse")
+func (d *DHT) OnPingResponse(node ds.Node, ping *message.PingResponse, addr net.UDPAddr) {
+    log.Info("OnPingResponse", addr)
     d.routingTable.UpdateNodeStatus(ping.Id)
     d.PingPool <- node
 }
@@ -132,11 +133,22 @@ func (d *DHT) OnPingRequest(msg *message.PingRequest, addr net.UDPAddr) {
         T:  msg.T,
         Id: d.selfNodeID,
     }
-    _, err := d.conn.WriteToUDP(pingResponse.Encode(), &addr)
-    if err != nil {
+
+    d.routingTable.UpdateNodeStatus(msg.Id)
+
+    if _, err := d.conn.WriteToUDP(pingResponse.Encode(), &addr); err != nil {
         log.Error("Failed to send ping response")
     }
 }
+
+func (d *DHT) SendPingRequest(node ds.Node, tx message.TransactionId)  {
+    fmt.Println("send ping request for ", node.IP)
+    node.Send(d.conn, message.PingRequest{
+        T:  tx,
+        Id: d.selfNodeID,
+    }.Encode())
+}
+
 //----------------------------------------
 
 // FIND NODE Request
@@ -150,11 +162,12 @@ func (d *DHT) OnFindNodeRequest(msg *message.FindNodeRequest, addr net.UDPAddr) 
         Id:    d.selfNodeID,
         Nodes: nodes,
     }
-    _, err := d.conn.WriteToUDP(findNodeResponse.Encode(), &addr)
-    if err != nil {
+
+    if _, err := d.conn.WriteToUDP(findNodeResponse.Encode(), &addr); err != nil {
         log.Error("Failed to send findNode response")
     }
 }
+
 //----------------------------------------
 
 // GetPeers Request
@@ -163,14 +176,14 @@ func (d *DHT) OnGetPeersRequest(msg *message.GetPeersRequest, addr net.UDPAddr) 
     var data []byte
 
     peers := d.peerStore.Get(msg.InfoHash)
-    if len(peers) > 0{
+    if len(peers) > 0 {
         data = message.GetPeersResponse{
             T:     msg.T,
             Id:    d.selfNodeID,
             Token: message.Token("sdhh"),
             Peers: peers,
         }.Encode()
-    } else{
+    } else {
         nodes := d.routingTable.GetK(msg.Id)
 
         data = message.GetPeersResponseWithNodes{
@@ -181,9 +194,9 @@ func (d *DHT) OnGetPeersRequest(msg *message.GetPeersRequest, addr net.UDPAddr) 
         }.Encode()
     }
 
-    _, err := d.conn.WriteToUDP(data, &addr)
-    if err != nil {
+    if _, err := d.conn.WriteToUDP(data, &addr); err != nil {
         log.Error("Failed to send GetPeersWithNodes response")
     }
 }
+
 //----------------------------------------

@@ -89,10 +89,10 @@ func TestRoutingTable_GetOne(t *testing.T) {
 	rt.Insert(contact1)
 	rt.Insert(contact2)
 
-	contact, ok := rt.GetOne(contact1.NodeID)
+	contact, ok := rt.PeekOne(contact1.NodeID)
 
 	if !ok || contact.NodeID != contact1.NodeID {
-		t.Error("problem in GetOne")
+		t.Error("problem in PeekOne")
 	}
 }
 
@@ -104,9 +104,9 @@ func TestRoutingTable_GetOne_Fail(t *testing.T) {
 
 	rt.Insert(contact1)
 
-	contact, exists := rt.GetOne(contact2.NodeID)
+	contact, exists := rt.PeekOne(contact2.NodeID)
 	if exists || (contact != ds.Contact{}) {
-		t.Error("problem in GetOne")
+		t.Error("problem in PeekOne")
 	}
 }
 

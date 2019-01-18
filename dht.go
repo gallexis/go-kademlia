@@ -10,13 +10,14 @@ import (
 )
 
 type DHT struct {
-    selfNodeID         ds.NodeId
-    routingTable       ds.RoutingTable
-    conn               *net.UDPConn
-    bootstrapNodes     []string
-    peerStore          ds.PeerStore
-    eventDispatcher    Dispatcher
-    PingPool           chan ds.Node
+    selfNodeID      ds.NodeId
+    routingTable    ds.RoutingTable
+    conn            *net.UDPConn
+    bootstrapNodes  []string
+    peerStore       ds.PeerStore
+    eventDispatcher Dispatcher
+    PingPool        chan ds.Node
+    pingRequests    chan ds.Node
 }
 
 func NewDHT() DHT {
@@ -33,18 +34,20 @@ func NewDHT() DHT {
     if err != nil {
         log.Panicf("Some error %v", err)
     }
-
     return NewCustomDHT(nid, bootstrapNodes, conn)
 }
 
 func NewCustomDHT(nid ds.NodeId, bootstrapNodes []string, conn *net.UDPConn) DHT {
+    pingRequests := make(chan ds.Node)
+
     return DHT{
-        selfNodeID:         nid,
-        routingTable:       ds.NewRoutingTable(nid),
-        conn:               conn,
-        bootstrapNodes:     bootstrapNodes,
-        peerStore:          make(ds.PeerStore),
-        eventDispatcher:    NewDispatcher(),
+        pingRequests:    pingRequests,
+        selfNodeID:      nid,
+        routingTable:    ds.NewRoutingTable(nid, pingRequests),
+        conn:            conn,
+        bootstrapNodes:  bootstrapNodes,
+        peerStore:       make(ds.PeerStore),
+        eventDispatcher: NewDispatcher(),
     }
 }
 
@@ -96,7 +99,7 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
 
     // Update routing table with nodes received
     for _, c := range findNodes.Nodes {
-        d.routingTable.Insert(c, true)
+        _, _ = d.routingTable.Insert(c, true)
     }
 
     return true
@@ -113,12 +116,12 @@ func (d *DHT) Receiver() {
                 time.Sleep(time.Second * 1)
                 continue
             }
-            go d.Router(buffer[:n], *udpAddr)
+            d.Router(buffer[:n], *udpAddr)
         }
     }()
 }
 
-func (d *DHT) ManageRequest(request message.Message, addr net.UDPAddr){
+func (d *DHT) ManageRequest(request message.Message, addr net.UDPAddr) {
     switch v := request.(type) {
     case *message.PingRequest:
         d.OnPingRequest(v, addr)
@@ -133,43 +136,69 @@ func (d *DHT) ManageRequest(request message.Message, addr net.UDPAddr){
     }
 }
 
-
-func (d *DHT) PendingPingPool(){
+func (d *DHT) PendingPingPool() {
     go func() {
-        for{
+        for {
             select {
-            case node := <-d.PingPool:
-                _, _ = d.routingTable.Insert(node, true)
+            case node := <-d.pingRequests:
+                tx := message.NewTransactionId()
+                d.eventDispatcher.AddEvent(tx.String(), Event{
+                    timeout:           time.Now(),
+                    maxTries:          2,
+                    duplicates:        0,
+                    CallbackOnTimeout: NewCallback(func() {
+                        fmt.Println("Node is dead")
+                        d.routingTable.Remove(node)
+                    }),
+                    Callback:          NewCallback(d.OnPingResponse, node),
+                    Caller:            NewCallback(d.SendPingRequest, node, tx),
+                })
+
+                d.SendPingRequest(node, tx)
             }
         }
+
     }()
 }
 
-func (d *DHT) Insert(node ds.Node){
+func (d *DHT) Insert(node ds.Node) {
     ok, err := d.routingTable.Insert(node, false)
-    if ok{
+    if ok {
         return
     } else if err != nil {
         log.Error(err)
         return
     }
 
+    tx := message.NewTransactionId()
+
     // Not inserted because we are waiting for a ping response
     // add in pending pool
     // send ping
-    tx := message.NewTransactionId()
     d.eventDispatcher.AddEvent(tx.String(), Event{
-        timeout:           time.Now(),
-        maxTries:          1,
+        timeout:  time.Now(),
+        maxTries: 2,
+        CallbackOnTimeout: NewCallback(func() {
+            ok, err := d.routingTable.Insert(node, true)
+            if !ok {
+                log.Error("should have inserted node properly")
+            }
+            if err != nil {
+                log.Error("error when inserting new node", err)
+            }
+        }),
         Callback: NewCallback(d.OnPingResponse, node),
+        Caller:   NewCallback(d.SendPingRequest, node, tx),
     })
+
+    d.SendPingRequest(node, tx)
 }
 
 func (d *DHT) Router(data []byte, addr net.UDPAddr) {
     var msg message.Message
 
     g, ok := message.BytesToMessage(data)
-    if !ok{
+    if !ok {
         return
     }
 
