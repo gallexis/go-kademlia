@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     log "github.com/sirupsen/logrus"
+    "kademlia/Dispatcher"
     ds "kademlia/datastructure"
     "kademlia/message"
     "net"
@@ -15,9 +16,11 @@ type DHT struct {
     conn            *net.UDPConn
     bootstrapNodes  []string
     peerStore       ds.PeerStore
-    eventDispatcher Dispatcher
+    eventDispatcher Dispatcher.Dispatcher
     PingPool        chan ds.Node
     pingRequests    chan ds.Node
+
+    Display <-chan time.Time
 }
 
 func NewDHT() DHT {
@@ -27,7 +30,7 @@ func NewDHT() DHT {
         "router.bittorrent.com:6881",
     }
     addr := net.UDPAddr{
-        Port: 38568,
+        Port: 38569,
         IP:   net.ParseIP("0.0.0.0"),
     }
     conn, err := net.ListenUDP("udp", &addr)
@@ -47,7 +50,8 @@ func NewCustomDHT(nid ds.NodeId, bootstrapNodes []string, conn *net.UDPConn) DHT
         conn:            conn,
         bootstrapNodes:  bootstrapNodes,
         peerStore:       make(ds.PeerStore),
-        eventDispatcher: NewDispatcher(),
+        eventDispatcher: Dispatcher.NewDispatcher(),
+        Display: time.Tick(time.Second * 30),
     }
 }
 
@@ -99,7 +103,7 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
 
     // Update routing table with nodes received
     for _, c := range findNodes.Nodes {
-        _, _ = d.routingTable.Insert(c, true)
+        d.Insert(c)
     }
 
     return true
@@ -136,29 +140,34 @@ func (d *DHT) ManageRequest(request message.Message, addr net.UDPAddr) {
     }
 }
 
-func (d *DHT) PendingPingPool() {
+func (d *DHT) Timer() {
     go func() {
         for {
             select {
-            case node := <-d.pingRequests:
-                tx := message.NewTransactionId()
-                d.eventDispatcher.AddEvent(tx.String(), Event{
-                    timeout:           time.Now(),
-                    maxTries:          2,
-                    duplicates:        0,
-                    CallbackOnTimeout: NewCallback(func() {
-                        fmt.Println("Node is dead")
-                        d.routingTable.Remove(node)
-                    }),
-                    Callback:          NewCallback(d.OnPingResponse, node),
-                    Caller:            NewCallback(d.SendPingRequest, node, tx),
-                })
-
-                d.SendPingRequest(node, tx)
+            case <-d.Display:
+                fmt.Println(d.routingTable)
             }
         }
-
     }()
+}
+
+func (d *DHT) PendingPingPool() {
+    for {
+        select {
+        case node := <-d.pingRequests:
+            tx := message.NewTransactionId()
+            d.eventDispatcher.AddEvent(tx.String(), Dispatcher.Event{
+                Retries: 1,
+                OnTimeout: Dispatcher.NewCallback(func() {
+                    d.routingTable.Remove(node)
+                }),
+                OnResponse: Dispatcher.NewCallback(d.OnPingResponse, node),
+                OnRetry:    Dispatcher.NewCallback(d.SendPingRequest, node, tx),
+            })
+
+            d.SendPingRequest(node, tx)
+        }
+    }
 }
 
 func (d *DHT) Insert(node ds.Node) {
@@ -173,12 +182,9 @@ func (d *DHT) Insert(node ds.Node) {
     tx := message.NewTransactionId()
 
     // Not inserted because we are waiting for a ping response
-    // add in pending pool
-    // send ping
-    d.eventDispatcher.AddEvent(tx.String(), Event{
-        timeout:  time.Now(),
-        maxTries: 2,
-        CallbackOnTimeout: NewCallback(func() {
+    d.eventDispatcher.AddEvent(tx.String(), Dispatcher.Event{
+        Retries: 1,
+        OnTimeout: Dispatcher.NewCallback(func() {
             ok, err := d.routingTable.Insert(node, true)
             if !ok {
                 log.Error("should have inserted node properly")
@@ -187,8 +193,8 @@ func (d *DHT) Insert(node ds.Node) {
                 log.Error("error when inserting new node", err)
             }
         }),
-        Callback: NewCallback(d.OnPingResponse, node),
-        Caller:   NewCallback(d.SendPingRequest, node, tx),
+        OnResponse: Dispatcher.NewCallback(d.OnPingResponse, node),
+        OnRetry:    Dispatcher.NewCallback(d.SendPingRequest, node, tx),
     })
 
     d.SendPingRequest(node, tx)

@@ -1,7 +1,6 @@
 package main
 
 import (
-    "fmt"
     "kademlia/datastructure"
     "math/rand"
     "time"
@@ -11,11 +10,18 @@ func init() {
     rand.Seed(time.Now().UTC().UnixNano())
 }
 
+/*
+    add statistics
+    clean code
+    write tests & comments
+ */
+
 func main() {
     dht := NewDHT()
     dht.eventDispatcher.Start()
     dht.Bootstrap(dht.bootstrapNodes[1])
     dht.Receiver()
+    dht.Timer()
     dht.PopulateRT()
 
     time.Sleep(time.Second * 5)
@@ -27,5 +33,5 @@ func main() {
     //dht.GetPeers(datastructure.NewNodeIdFromString("D58952BDBBBFBA9DA444F8FE99DCF2C7F2E4AB77"))
     //dht.GetPeers(datastructure.NewNodeIdFromString("4EBF7D54EABA7380D46C05604B059FABAEA212F0"))
 
-    fmt.Scanln()
+    dht.PendingPingPool()
 }

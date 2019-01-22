@@ -5,6 +5,7 @@ import (
     "fmt"
     log "github.com/sirupsen/logrus"
     "math"
+    "sync"
 )
 
 var (
@@ -21,11 +22,13 @@ func (b BucketPosition) CloserThan(other BucketPosition) bool {
 // Closest bucket = 159 (BitsInNodeID)
 // Furthest bucket = 0
 type RoutingTable struct {
+    sync.Mutex
+    ClosestBucketFilled BucketPosition
+
     KBuckets            [BitsInNodeID]KBucket
     selfNodeID          NodeId
     K                   int
     Alpha               int
-    ClosestBucketFilled BucketPosition
 }
 
 func NewRoutingTable(nodeID NodeId, pingRequests chan Node) RoutingTable {
@@ -49,7 +52,22 @@ func NewRoutingTableWithDetails(nodeID NodeId, k int, alpha int, pingRequests ch
     return rt
 }
 
+func (rt *RoutingTable) SetClosestBucketFilled(position BucketPosition) {
+    rt.Lock()
+    rt.ClosestBucketFilled = position
+    rt.Unlock()
+}
+
+func (rt *RoutingTable) GetClosestBucketFilled() BucketPosition {
+    rt.Lock()
+    defer rt.Unlock()
+    return rt.ClosestBucketFilled
+}
+
 func (rt RoutingTable) String() (content string) {
+    rt.Lock()
+    defer rt.Unlock()
+
     content += "----Display RT--------------------------\n"
     for i, b := range rt.KBuckets {
         if b.Nodes.Len() > 0 {
@@ -86,8 +104,8 @@ func (rt *RoutingTable) Insert(newNode Node, force bool) (bool, error) {
     defer rt.KBuckets[bucketNumber].Unlock()
 
     ok, err := rt.KBuckets[bucketNumber].Insert(&newNode, force)
-    if ok && bucketNumber.CloserThan(rt.ClosestBucketFilled) {
-        rt.ClosestBucketFilled = bucketNumber
+    if ok && bucketNumber.CloserThan(rt.GetClosestBucketFilled()) {
+        rt.SetClosestBucketFilled(bucketNumber)
     }
 
     return ok, err
@@ -101,7 +119,7 @@ func (rt *RoutingTable) GetRandomNodes(bucketPosition int) []Node {
 }
 
 func (rt *RoutingTable) GetClosestNodes() (nodes []Node) {
-    bucketNumber := rt.ClosestBucketFilled
+    bucketNumber := rt.GetClosestBucketFilled()
     rt.KBuckets[bucketNumber].Lock()
     defer rt.KBuckets[bucketNumber].Unlock()
 

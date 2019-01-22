@@ -12,11 +12,10 @@ import (
 
 type KBucket struct {
     sync.Mutex
-    Nodes             *lru.Cache
-    K                 int
-    InsertDurationMax time.Duration
-    LastSeenNode      time.Time
-    Tick         <-chan time.Time
+    Nodes         *lru.Cache
+    K             int
+    LastSeenNode  time.Time
+    RefreshTicker <-chan time.Time
 }
 
 func NewKBucket(k int) KBucket {
@@ -25,11 +24,10 @@ func NewKBucket(k int) KBucket {
         log.Fatalln(err)
     }
     return KBucket{
-        Nodes:             nodes,
-        K:                 k,
-        InsertDurationMax: 3 * time.Second,
-        LastSeenNode:      time.Time{},
-        Tick:              time.Tick(time.Second * 80),
+        Nodes:         nodes,
+        K:             k,
+        LastSeenNode:  time.Time{},
+        RefreshTicker: time.Tick(time.Minute * 5),
     }
 }
 
@@ -38,14 +36,14 @@ func (kb *KBucket) RefreshLoop(pingRequests chan Node) {
         for {
             select {
 
-            case <-kb.Tick:
+            case <-kb.RefreshTicker:
                 keys := kb.Nodes.Keys()
 
-                if len(keys) <= 0{
+                if len(keys) <= 0 {
                     continue
                 }
 
-                oldestNodeInterface, ok := kb.Nodes.Peek(keys[0]) // todo: UNSAFE
+                oldestNodeInterface, ok := kb.Nodes.Peek(keys[0])
                 if !ok {
                     log.Error("Error Peeking node")
                     continue
@@ -53,8 +51,6 @@ func (kb *KBucket) RefreshLoop(pingRequests chan Node) {
 
                 oldestNode := oldestNodeInterface.(*Node)
                 if !oldestNode.IsGood() {
-                    fmt.Print(time.Now().Clock())
-                    fmt.Println("- Refreshing :", oldestNode.NodeID)
                     pingRequests <- *oldestNode
                 }
             }
@@ -74,7 +70,7 @@ func (kb *KBucket) Insert(newNode *Node, forceInsert bool) (inserted bool, err e
 
     } else { // Insert when full KB
         keys := kb.Nodes.Keys()
-        if len(keys) <= 0{
+        if len(keys) <= 0 {
             log.Error("should not be here")
             return
         }
@@ -85,7 +81,7 @@ func (kb *KBucket) Insert(newNode *Node, forceInsert bool) (inserted bool, err e
             return
         }
 
-        if forceInsert{
+        if forceInsert {
             fmt.Println("FORCE INSERT")
             kb.Nodes.Add(newNodeId, newNode)
             return
