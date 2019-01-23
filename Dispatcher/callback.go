@@ -16,8 +16,15 @@ func (c Callback) isSet() bool{
     return !reflect.DeepEqual(c, Callback{})
 }
 
+func (c *Callback) AddArgs(vargs ...interface{}){
+    for _, arg := range vargs {
+        c.args = append(c.args, reflect.ValueOf(arg))
+    }
+}
+
+
 func (c *Callback) Call(args ...interface{}) {
-    defer func() {
+   defer func() {
         if r := recover(); r != nil {
             fmt.Println("Recovered in Call", r)
         }
@@ -46,5 +53,8 @@ func NewCallback(fn interface{}, args ...interface{}) Callback {
         vargs[i] = reflect.ValueOf(arg)
     }
 
-    return Callback{f, vargs}
+    return Callback{
+        fn:      f,
+        args:    vargs,
+    }
 }

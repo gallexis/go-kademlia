@@ -1,6 +1,7 @@
 package main
 
 import (
+    "fmt"
     log "github.com/sirupsen/logrus"
     "kademlia/Dispatcher"
     ds "kademlia/datastructure"
@@ -9,7 +10,7 @@ import (
 )
 
 func (d *DHT) OnGetPeersRequest(msg *message.GetPeersRequest, addr net.UDPAddr) {
-    log.Info("OnGetPeersRequest")
+    log.Debug("OnGetPeersRequest")
     var data []byte
 
     peers := d.peerStore.Get(msg.InfoHash)
@@ -21,13 +22,11 @@ func (d *DHT) OnGetPeersRequest(msg *message.GetPeersRequest, addr net.UDPAddr) 
             Peers: peers,
         }.Encode()
     } else {
-        nodes := d.routingTable.GetK(msg.Id)
-
         data = message.GetPeersResponseWithNodes{
             T:     msg.T,
             Id:    d.selfNodeID,
             Token: message.Token("sdhh"),
-            Nodes: nodes,
+            Nodes: d.routingTable.GetK(msg.Id),
         }.Encode()
     }
 
@@ -37,7 +36,7 @@ func (d *DHT) OnGetPeersRequest(msg *message.GetPeersRequest, addr net.UDPAddr) 
 }
 
 func (d *DHT) onGetPeersResponse(infoHash ds.InfoHash, getPeers *message.GetPeersResponse, addr net.UDPAddr) {
-    log.Info("!!! onGetPeersResponse !!!")
+    fmt.Println("!!! onGetPeersResponse !!!")
 
     d.peerStore.Add(infoHash, getPeers.Peers)
 }

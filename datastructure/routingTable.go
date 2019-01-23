@@ -70,8 +70,9 @@ func (rt RoutingTable) String() (content string) {
 
     content += "----Display RT--------------------------\n"
     for i, b := range rt.KBuckets {
-        if b.Nodes.Len() > 0 {
-            content += fmt.Sprintln(i, ": ", b.Nodes.Len())
+        kbLen := b.Len()
+        if kbLen > 0 {
+            content += fmt.Sprintln(i, ": ", kbLen)
         }
     }
     content += "----------------------------------------\n"
@@ -79,17 +80,11 @@ func (rt RoutingTable) String() (content string) {
     return content
 }
 
-func (rt *RoutingTable) DisplayBucket(bucketNumber int) string {
-    return fmt.Sprint(bucketNumber, ": ", rt.KBuckets[bucketNumber].Nodes.Len())
-}
-
 func (rt *RoutingTable) Remove(newNode Node) {
     xoredID := rt.selfNodeID.XOR(newNode.NodeID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].Lock()
-    rt.KBuckets[bucketNumber].Nodes.Remove(newNode.NodeID)
-    rt.KBuckets[bucketNumber].Unlock()
+    rt.KBuckets[bucketNumber].Remove(newNode.NodeID)
 }
 
 func (rt *RoutingTable) Insert(newNode Node, force bool) (bool, error) {
@@ -100,9 +95,6 @@ func (rt *RoutingTable) Insert(newNode Node, force bool) (bool, error) {
     xoredID := rt.selfNodeID.XOR(newNode.NodeID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].Lock()
-    defer rt.KBuckets[bucketNumber].Unlock()
-
     ok, err := rt.KBuckets[bucketNumber].Insert(&newNode, force)
     if ok && bucketNumber.CloserThan(rt.GetClosestBucketFilled()) {
         rt.SetClosestBucketFilled(bucketNumber)
@@ -112,16 +104,11 @@ func (rt *RoutingTable) Insert(newNode Node, force bool) (bool, error) {
 }
 
 func (rt *RoutingTable) GetRandomNodes(bucketPosition int) []Node {
-    rt.KBuckets[bucketPosition].Lock()
-    defer rt.KBuckets[bucketPosition].Unlock()
-
     return rt.KBuckets[bucketPosition].GetRandomNodes(Alpha)
 }
 
 func (rt *RoutingTable) GetClosestNodes() (nodes []Node) {
     bucketNumber := rt.GetClosestBucketFilled()
-    rt.KBuckets[bucketNumber].Lock()
-    defer rt.KBuckets[bucketNumber].Unlock()
 
     rt.fillNodesByBucketNumber(bucketNumber, &nodes)
 
@@ -139,9 +126,6 @@ func (rt *RoutingTable) GetK(otherID NodeId) (nodes []Node) {
     xoredID := rt.selfNodeID.XOR(otherID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].Lock()
-    defer rt.KBuckets[bucketNumber].Unlock()
-
     rt.fillNodesByBucketNumber(bucketNumber, &nodes)
 
     if len(nodes) >= rt.K {
@@ -158,9 +142,6 @@ func (rt *RoutingTable) PeekOne(otherID NodeId) (Node, bool) {
     xoredID := rt.selfNodeID.XOR(otherID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].Lock()
-    defer rt.KBuckets[bucketNumber].Unlock()
-
     node, exists := rt.KBuckets[bucketNumber].Peek(otherID)
     return *node, exists
 }
@@ -168,9 +149,6 @@ func (rt *RoutingTable) PeekOne(otherID NodeId) (Node, bool) {
 func (rt *RoutingTable) UpdateNodeStatus(nodeId NodeId) (exists bool) {
     xoredID := rt.selfNodeID.XOR(nodeId)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
-
-    rt.KBuckets[bucketNumber].Lock()
-    defer rt.KBuckets[bucketNumber].Unlock()
 
     if node, exists := rt.KBuckets[bucketNumber].Get(nodeId); exists {
         node.UpdateLastMessageReceived()
@@ -185,9 +163,6 @@ func (rt *RoutingTable) UpdateLastRequestFindNode(node Node) (exists bool) {
     xoredID := rt.selfNodeID.XOR(node.NodeID)
     bucketNumber := rt.selfNodeID.GetBucketNumber(xoredID)
 
-    rt.KBuckets[bucketNumber].Lock()
-    defer rt.KBuckets[bucketNumber].Unlock()
-
     if node, exists := rt.KBuckets[bucketNumber].Peek(node.NodeID); exists {
         node.UpdateLastRequestFindNode()
     } else {
@@ -197,11 +172,9 @@ func (rt *RoutingTable) UpdateLastRequestFindNode(node Node) (exists bool) {
     return exists
 }
 
-func (rt RoutingTable) fillNodesByBucketNumber(bucketNumber BucketPosition, nodes *[]Node) {
-    nodesInterface := rt.KBuckets[bucketNumber].Nodes.Keys()
-
-    for _, nodeID := range nodesInterface {
-        if node, exists := rt.KBuckets[bucketNumber].Peek(nodeID.(NodeId)); exists {
+func (rt *RoutingTable) fillNodesByBucketNumber(bucketNumber BucketPosition, nodes *[]Node) {
+    for _, nodeID := range rt.KBuckets[bucketNumber].Keys() {
+        if node, exists := rt.KBuckets[bucketNumber].Peek(nodeID); exists {
             *nodes = append(*nodes, *node)
         } else {
             log.Error("Node doesn't exist")
@@ -209,7 +182,7 @@ func (rt RoutingTable) fillNodesByBucketNumber(bucketNumber BucketPosition, node
     }
 }
 
-func (rt RoutingTable) getClosestNeighbours(positions []BucketPosition, nodes *[]Node) {
+func (rt *RoutingTable) getClosestNeighbours(positions []BucketPosition, nodes *[]Node) {
     for _, bucketNumber := range positions {
         rt.fillNodesByBucketNumber(bucketNumber, nodes)
 

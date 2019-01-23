@@ -1,6 +1,7 @@
 package main
 
 import (
+    "fmt"
     log "github.com/sirupsen/logrus"
     "kademlia/Dispatcher"
     "kademlia/message"
@@ -24,7 +25,7 @@ func (d *DHT) OnFindNodeRequest(msg *message.FindNodeRequest, addr net.UDPAddr) 
 }
 
 func (d *DHT) OnFindNodesResponse(findNodes *message.FindNodeResponse, addr net.UDPAddr) {
-    //log.Printf("findNodes %+v", addr)
+    log.Printf("findNodes %+v", addr)
 
     for _, c := range findNodes.Nodes {
         d.Insert(c)
@@ -32,6 +33,8 @@ func (d *DHT) OnFindNodesResponse(findNodes *message.FindNodeResponse, addr net.
 }
 
 func (d *DHT) PopulateRT() {
+    log.Debug("PopulateRT")
+
     closestNodes := d.routingTable.GetClosestNodes()
     tx := message.NewTransactionId()
     totalGoodNodes := len(closestNodes)
@@ -57,5 +60,5 @@ func (d *DHT) PopulateRT() {
             OnResponse: Dispatcher.NewCallback(d.OnFindNodesResponse),
         })
     }
-//    fmt.Println(d.routingTable.ClosestBucketFilled, d.routingTable)
+    fmt.Println(d.routingTable.ClosestBucketFilled, d.routingTable)
 }

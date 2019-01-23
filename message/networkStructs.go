@@ -52,7 +52,7 @@ type ResponseMessage struct {
 func MessageToBytes(message interface{}) []byte {
     buffer, err := bencode.EncodeBytes(message)
     if err != nil {
-        log.Panic("MessageToBytes", err)
+        log.Panic("MessageToBytes ->", err)
     }
 
     return buffer

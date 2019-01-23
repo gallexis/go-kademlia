@@ -14,13 +14,15 @@ type Dispatcher struct {
     out  chan bool
     Tick <-chan time.Time
     Map  map[string]Event
+    callbackChan chan Callback
 }
 
-func NewDispatcher() Dispatcher {
+func NewDispatcher(callbackChan chan Callback) Dispatcher {
     return Dispatcher{
-        out:  make(chan bool),
-        Tick: time.Tick(time.Second * 4),
-        Map:  make(map[string]Event),
+        out:          make(chan bool),
+        Tick:         time.Tick(time.Second * 4),
+        Map:          make(map[string]Event),
+        callbackChan: callbackChan,
     }
 }
 
@@ -35,7 +37,6 @@ func (d *Dispatcher) Start() {
             case <-d.Tick:
                 now := time.Now()
 
-                d.Lock()
                 for k, event := range d.Map {
                     if !event.HasTimedOut(now, DefaultEventTimeout) {
                         continue
@@ -43,14 +44,13 @@ func (d *Dispatcher) Start() {
 
                     if event.Retries > 0{
                         event.Retries -= 1
-                        go event.OnRetry.Call() // Can lock here if we lock mutex
+                        d.callbackChan <- event.OnRetry // Can lock here if we lock mutex
                         d.Map[k] = event
                     } else{
-                        go event.OnTimeout.Call() // here too
+                        d.callbackChan <- event.OnTimeout // here too
                         delete(d.Map, k)
                     }
                 }
-                d.Unlock()
 
             case <-d.out:
                 return
@@ -63,6 +63,7 @@ func (d *Dispatcher) AddEvent(tx string, event Event) {
     if event.Retries > 0 && !event.OnRetry.isSet(){
         log.Warn("when Retries is > 0, you must set a OnRetry callback")
     }
+
     d.Lock()
     event.startTime = time.Now()
     d.Map[tx] = event

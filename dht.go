@@ -19,8 +19,8 @@ type DHT struct {
     eventDispatcher Dispatcher.Dispatcher
     PingPool        chan ds.Node
     pingRequests    chan ds.Node
-
-    Display <-chan time.Time
+    Callback        chan Dispatcher.Callback
+    Display         <-chan time.Time
 }
 
 func NewDHT() DHT {
@@ -42,16 +42,18 @@ func NewDHT() DHT {
 
 func NewCustomDHT(nid ds.NodeId, bootstrapNodes []string, conn *net.UDPConn) DHT {
     pingRequests := make(chan ds.Node)
+    callback := make(chan Dispatcher.Callback)
 
     return DHT{
-        pingRequests:    pingRequests,
         selfNodeID:      nid,
         routingTable:    ds.NewRoutingTable(nid, pingRequests),
         conn:            conn,
         bootstrapNodes:  bootstrapNodes,
         peerStore:       make(ds.PeerStore),
-        eventDispatcher: Dispatcher.NewDispatcher(),
-        Display: time.Tick(time.Second * 30),
+        eventDispatcher: Dispatcher.NewDispatcher(callback),
+        pingRequests:    pingRequests,
+        Callback:        callback,
+        Display:         time.Tick(time.Second * 30),
     }
 }
 
@@ -170,6 +172,15 @@ func (d *DHT) PendingPingPool() {
     }
 }
 
+func (d *DHT) CallbackCaller() {
+    for {
+        select {
+        case callback := <-d.Callback:
+            go callback.Call()
+        }
+    }
+}
+
 func (d *DHT) Insert(node ds.Node) {
     ok, err := d.routingTable.Insert(node, false)
     if ok {
@@ -259,7 +270,8 @@ func (d *DHT) Router(data []byte, addr net.UDPAddr) {
         }
 
         msg.Decode(g)
-        callback.Call(msg, addr)
+        callback.AddArgs(msg, addr)
+        d.Callback <- callback
 
     case "e":
         log.Info("Error:", g.E)
