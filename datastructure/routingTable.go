@@ -1,7 +1,6 @@
 package datastructure
 
 import (
-    "errors"
     "fmt"
     log "github.com/sirupsen/logrus"
     "math"
@@ -22,7 +21,7 @@ func (b BucketPosition) CloserThan(other BucketPosition) bool {
 // Closest bucket = 159 (BitsInNodeID)
 // Furthest bucket = 0
 type RoutingTable struct {
-    sync.Mutex
+    sync.RWMutex
     ClosestBucketFilled BucketPosition
 
     KBuckets            [BitsInNodeID]KBucket
@@ -59,15 +58,12 @@ func (rt *RoutingTable) SetClosestBucketFilled(position BucketPosition) {
 }
 
 func (rt *RoutingTable) GetClosestBucketFilled() BucketPosition {
-    rt.Lock()
-    defer rt.Unlock()
+    rt.RLock()
+    defer rt.RUnlock()
     return rt.ClosestBucketFilled
 }
 
 func (rt RoutingTable) String() (content string) {
-    rt.Lock()
-    defer rt.Unlock()
-
     content += "----Display RT--------------------------\n"
     for i, b := range rt.KBuckets {
         kbLen := b.Len()
@@ -89,7 +85,7 @@ func (rt *RoutingTable) Remove(newNode Node) {
 
 func (rt *RoutingTable) Insert(newNode Node, force bool) (bool, error) {
     if newNode.NodeID.Equals(rt.selfNodeID) {
-        return false, errors.New("found myself")
+        return false, nil
     }
 
     xoredID := rt.selfNodeID.XOR(newNode.NodeID)
@@ -175,7 +171,9 @@ func (rt *RoutingTable) UpdateLastRequestFindNode(node Node) (exists bool) {
 func (rt *RoutingTable) fillNodesByBucketNumber(bucketNumber BucketPosition, nodes *[]Node) {
     for _, nodeID := range rt.KBuckets[bucketNumber].Keys() {
         if node, exists := rt.KBuckets[bucketNumber].Peek(nodeID); exists {
+            node.RLock()
             *nodes = append(*nodes, *node)
+            node.RUnlock()
         } else {
             log.Error("Node doesn't exist")
         }

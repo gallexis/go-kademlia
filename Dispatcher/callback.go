@@ -12,21 +12,20 @@ type Callback struct {
     args []reflect.Value
 }
 
-func (c Callback) isSet() bool{
+func (c Callback) isSet() bool {
     return !reflect.DeepEqual(c, Callback{})
 }
 
-func (c *Callback) AddArgs(vargs ...interface{}){
+func (c *Callback) AddArgs(vargs ...interface{}) {
     for _, arg := range vargs {
         c.args = append(c.args, reflect.ValueOf(arg))
     }
 }
 
-
 func (c *Callback) Call(args ...interface{}) {
-   defer func() {
+    defer func() {
         if r := recover(); r != nil {
-            fmt.Println("Recovered in Call", r)
+            fmt.Println("Recovered in Call() : ", r)
         }
     }()
 
@@ -54,7 +53,7 @@ func NewCallback(fn interface{}, args ...interface{}) Callback {
     }
 
     return Callback{
-        fn:      f,
-        args:    vargs,
+        fn:   f,
+        args: vargs,
     }
 }

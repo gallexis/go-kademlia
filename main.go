@@ -1,14 +1,14 @@
 package main
 
 import (
-    "kademlia/datastructure"
+    "fmt"
+    log "github.com/sirupsen/logrus"
     "math/rand"
     "time"
-    //log "github.com/sirupsen/logrus"
 )
 
 func init() {
-    //log.
+    log.SetLevel(log.DebugLevel)
     rand.Seed(time.Now().UTC().UnixNano())
 }
 
@@ -16,25 +16,18 @@ func init() {
     add statistics
     clean code
     write tests & comments
+    deal with utorrent & bittorrent
+    set max tries for getpeers queries
  */
 
 func main() {
     dht := NewDHT()
-    dht.eventDispatcher.Start()
-    go dht.CallbackCaller()
-    dht.Bootstrap(dht.bootstrapNodes[1])
-    dht.Receiver()
-    dht.Timer()
-    dht.PopulateRT()
+    err := dht.Init()
 
-    time.Sleep(time.Second * 5)
+    if err != nil{
+        log.Error("DHT failure : ", err.Error())
+        return
+    }
 
-    //dht.GetPeers(datastructure.NewNodeIdFromString("57537D93A76F574369DC2E573E99C3840A9FD89D"))
-    //dht.GetPeers(datastructure.NewNodeIdFromString("FC0CCE628DBE7EEA0CF655A6A13336791021F25F"))
-    //dht.GetPeers(datastructure.NewNodeIdFromString("23E7A4876B36CE427A847A827306B4B2DC67304A"))
-    //dht.GetPeers(datastructure.NewNodeIdFromString("5EF929E35650741627DACA28E18A3DF0FC5A53DB"))
-    dht.GetPeers(datastructure.NewNodeIdFromString("D58952BDBBBFBA9DA444F8FE99DCF2C7F2E4AB77"))
-    //dht.GetPeers(datastructure.NewNodeIdFromString("4EBF7D54EABA7380D46C05604B059FABAEA212F0"))
-
-    dht.PendingPingPool()
+    fmt.Scanln()
 }

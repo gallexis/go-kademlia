@@ -76,7 +76,7 @@ func TestRoutingTable_Insert(t *testing.T) {
 	kb := rt.KBuckets[expectedContactPositionInKBucket].Nodes.Keys()
 
 	if kb[0] != contact2.NodeID || kb[1] != contact3.NodeID || len(kb) != 2 {
-		t.Error("problem in Insert")
+		t.Error("problem in insert")
 	}
 }
 

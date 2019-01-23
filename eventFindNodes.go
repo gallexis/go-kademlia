@@ -8,8 +8,8 @@ import (
     "net"
 )
 
-func (d *DHT) OnFindNodeRequest(msg *message.FindNodeRequest, addr net.UDPAddr) {
-    log.Info("OnFindNodeRequest")
+func (d *DHT) onFindNodeRequest(msg *message.FindNodeRequest, addr net.UDPAddr) {
+    log.Info("onFindNodeRequest")
 
     nodes := d.routingTable.GetK(msg.Id)
 
@@ -24,16 +24,16 @@ func (d *DHT) OnFindNodeRequest(msg *message.FindNodeRequest, addr net.UDPAddr) 
     }
 }
 
-func (d *DHT) OnFindNodesResponse(findNodes *message.FindNodeResponse, addr net.UDPAddr) {
+func (d *DHT) onFindNodesResponse(findNodes *message.FindNodeResponse, addr net.UDPAddr) {
     log.Printf("findNodes %+v", addr)
 
     for _, c := range findNodes.Nodes {
-        d.Insert(c)
+        d.insert(c)
     }
 }
 
-func (d *DHT) PopulateRT() {
-    log.Debug("PopulateRT")
+func (d *DHT) populateRT() {
+    log.Debug("populateRT")
 
     closestNodes := d.routingTable.GetClosestNodes()
     tx := message.NewTransactionId()
@@ -56,8 +56,8 @@ func (d *DHT) PopulateRT() {
     if totalGoodNodes > 0 && d.routingTable.GetClosestBucketFilled() < 158 {
         d.eventDispatcher.AddEvent(tx.String(), Dispatcher.Event{
             Duplicates: len(closestNodes),
-            OnTimeout:  Dispatcher.NewCallback(d.PopulateRT),
-            OnResponse: Dispatcher.NewCallback(d.OnFindNodesResponse),
+            OnTimeout:  Dispatcher.NewCallback(d.populateRT),
+            OnResponse: Dispatcher.NewCallback(d.onFindNodesResponse),
         })
     }
     fmt.Println(d.routingTable.ClosestBucketFilled, d.routingTable)

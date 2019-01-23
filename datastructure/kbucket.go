@@ -80,7 +80,7 @@ func (kb *KBucket) Insert(newNode *Node, forceInsert bool)  (bool, error) {
     } else if kb.isInBucket(newNodeId) {
         kb.Nodes.Get(newNodeId) // put at tail of LRU
 
-    } else { // Insert when full KB
+    } else { // insert when full KB
         keys := kb.Nodes.Keys()
         if len(keys) <= 0 {
             log.Error("should not be here")

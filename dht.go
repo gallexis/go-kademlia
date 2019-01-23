@@ -2,10 +2,12 @@ package main
 
 import (
     "fmt"
+    "github.com/murlokswarm/errors"
     log "github.com/sirupsen/logrus"
     "kademlia/Dispatcher"
     ds "kademlia/datastructure"
     "kademlia/message"
+    "math/rand"
     "net"
     "time"
 )
@@ -17,10 +19,10 @@ type DHT struct {
     bootstrapNodes  []string
     peerStore       ds.PeerStore
     eventDispatcher Dispatcher.Dispatcher
+    token           message.Token
     PingPool        chan ds.Node
     pingRequests    chan ds.Node
     Callback        chan Dispatcher.Callback
-    Display         <-chan time.Time
 }
 
 func NewDHT() DHT {
@@ -49,29 +51,84 @@ func NewCustomDHT(nid ds.NodeId, bootstrapNodes []string, conn *net.UDPConn) DHT
         routingTable:    ds.NewRoutingTable(nid, pingRequests),
         conn:            conn,
         bootstrapNodes:  bootstrapNodes,
-        peerStore:       make(ds.PeerStore),
+        peerStore:       ds.NewPeerStore(),
         eventDispatcher: Dispatcher.NewDispatcher(callback),
         pingRequests:    pingRequests,
         Callback:        callback,
-        Display:         time.Tick(time.Second * 30),
+        token:           message.NewToken(), // todo : can receive tokens 5min older
     }
 }
 
-func (d *DHT) Bootstrap(bootstrapNode string) bool {
+func (d *DHT) Init() (err error) {
+    defer func() {
+        if r := recover(); r != nil {
+            switch x := r.(type) {
+            case string:
+                err = errors.New("bootstrap has panicked,", x)
+            case error:
+                err = x
+            default:
+                err = errors.New("Unknown panic,", x)
+            }
+        }
+    }()
+
+    d.bootstrap()
+    go d.eventDispatcher.Start()
+    go d.callbackCaller()
+    go d.receiver()
+    go d.timer()
+    d.populateRT()
+
+    time.Sleep(time.Second * 5)
+
+    //d.getPeers(ds.NewNodeIdFromString("57537D93A76F574369DC2E573E99C3840A9FD89D"))
+    //d.getPeers(ds.NewNodeIdFromString("FC0CCE628DBE7EEA0CF655A6A13336791021F25F"))
+    //d.getPeers(ds.NewNodeIdFromString("23E7A4876B36CE427A847A827306B4B2DC67304A"))
+    d.getPeers(ds.NewNodeIdFromString("5EF929E35650741627DACA28E18A3DF0FC5A53DB"))
+    //d.getPeers(ds.NewNodeIdFromString("D58952BDBBBFBA9DA444F8FE99DCF2C7F2E4AB77"))
+    //d.getPeers(ds.NewNodeIdFromString("4EBF7D54EABA7380D46C05604B059FABAEA212F0"))
+
+    go d.pendingPingPool()
+
+    return
+}
+
+func (d *DHT) bootstrap() {
+    hasBootstrapped := false
+    var nodesTried []string
+    for _, i := range rand.Perm(len(d.bootstrapNodes)) { // chose random node
+
+        fmt.Println(d.bootstrapNodes[i])
+        err := d.bootstrapNode(d.bootstrapNodes[i])
+        if err == nil {
+            hasBootstrapped = true
+            break
+        }
+        nodesTried = append(nodesTried, d.bootstrapNodes[i])
+    }
+    if !hasBootstrapped {
+        panic(fmt.Sprintf("bootstrapped nodes tried : %s", nodesTried))
+    }
+}
+
+func (d *DHT) bootstrapNode(bootstrapNode string) error {
+    var err error
+
     raddr, err := net.ResolveUDPAddr("udp", bootstrapNode)
     if err != nil {
-        log.Panic("Can't resolve")
+        return errors.New("can't resolve UDP Addr : ", err.Error())
     }
 
     conn, err := net.DialUDP("udp", nil, raddr)
     if err != nil {
-        log.Panic("can't dial")
+        return errors.New("can't dial UDP : ", err.Error())
     }
 
     deadline := time.Now().Add(time.Second * 10)
     err = conn.SetReadDeadline(deadline)
     if err != nil {
-        log.Panic("too long")
+        return errors.New("network timeout : ", err.Error())
     }
 
     // Send FindNode request
@@ -82,78 +139,84 @@ func (d *DHT) Bootstrap(bootstrapNode string) bool {
     }
     _, err = conn.Write(findNodeRequest.Encode())
     if err != nil {
-        log.Panic("NewTransactionId", err)
-        return false
+        return errors.New("can't send findNode request : ", err.Error())
     }
 
     // GetResponse
     buffer := make([]byte, 1024)
     _, _, err = conn.ReadFrom(buffer)
     if err != nil {
-        log.Panic("can't read", err.Error())
+        return errors.New("can't read from socket : ", err.Error())
     }
 
     // Assert response if findNodeResponse
     g, _ := message.BytesToMessage(buffer)
     if g.Y != "r" || len(g.R.Nodes) <= 0 {
-        log.Panic("Not event findNode Response")
+        return errors.New("incorrect findNode response")
     }
 
     // Decode FindNodeResponse
     findNodes := message.FindNodeResponse{}
     findNodes.Decode(g)
 
-    // Update routing table with nodes received
-    for _, c := range findNodes.Nodes {
-        d.Insert(c)
+    if len(findNodes.Nodes) <= 0 {
+        return errors.New("no nodes received")
     }
 
-    return true
+    // Update routing table with nodes received
+    for _, c := range findNodes.Nodes {
+        d.insert(c)
+    }
+
+    return nil
 }
 
-func (d *DHT) Receiver() {
-    go func() {
-        buffer := make([]byte, 1024)
+func (d *DHT) receiver() {
+    buffer := make([]byte, 1024)
 
-        for {
-            n, udpAddr, err := d.conn.ReadFromUDP(buffer)
-            if err != nil {
-                log.Printf("Some error %v", err)
-                time.Sleep(time.Second * 1)
-                continue
-            }
-            d.Router(buffer[:n], *udpAddr)
+    for {
+        n, udpAddr, err := d.conn.ReadFromUDP(buffer)
+        if err != nil {
+            log.Printf("Some error %v", err)
+            time.Sleep(time.Second * 1)
+            continue
         }
-    }()
+        d.router(buffer[:n], *udpAddr)
+    }
 }
 
-func (d *DHT) ManageRequest(request message.Message, addr net.UDPAddr) {
+func (d *DHT) manageRequest(request message.Message, addr net.UDPAddr) {
     switch v := request.(type) {
     case *message.PingRequest:
-        d.OnPingRequest(v, addr)
+        d.onPingRequest(v, addr)
     case *message.FindNodeRequest:
-        d.OnFindNodeRequest(v, addr)
+        d.onFindNodeRequest(v, addr)
     case *message.GetPeersRequest:
-        d.OnGetPeersRequest(v, addr)
+        d.onGetPeersRequest(v, addr)
     case *message.AnnouncePeersRequest:
-        d.OnAnnouncePeerRequest(v, addr)
+        d.onAnnouncePeerRequest(v, addr)
     default:
         fmt.Println("Unknown request")
     }
 }
 
-func (d *DHT) Timer() {
-    go func() {
-        for {
-            select {
-            case <-d.Display:
-                fmt.Println(d.routingTable)
-            }
+func (d *DHT) timer() {
+    displayRoutingTable := time.Tick(time.Second * 30)
+    reGenerateToken := time.Tick(time.Minute * 10)
+
+    for {
+        select {
+        case <-displayRoutingTable:
+            fmt.Println(d.routingTable)
+
+        case <-reGenerateToken:
+            d.token = message.NewToken()
+
         }
-    }()
+    }
 }
 
-func (d *DHT) PendingPingPool() {
+func (d *DHT) pendingPingPool() {
     for {
         select {
         case node := <-d.pingRequests:
@@ -163,25 +226,25 @@ func (d *DHT) PendingPingPool() {
                 OnTimeout: Dispatcher.NewCallback(func() {
                     d.routingTable.Remove(node)
                 }),
-                OnResponse: Dispatcher.NewCallback(d.OnPingResponse, node),
-                OnRetry:    Dispatcher.NewCallback(d.SendPingRequest, node, tx),
+                OnResponse: Dispatcher.NewCallback(d.onPingResponse, node),
+                OnRetry:    Dispatcher.NewCallback(d.sendPingRequest, node, tx),
             })
 
-            d.SendPingRequest(node, tx)
+            d.sendPingRequest(node, tx)
         }
     }
 }
 
-func (d *DHT) CallbackCaller() {
+func (d *DHT) callbackCaller() {
     for {
         select {
         case callback := <-d.Callback:
-            go callback.Call()
+             callback.Call()
         }
     }
 }
 
-func (d *DHT) Insert(node ds.Node) {
+func (d *DHT) insert(node ds.Node) {
     ok, err := d.routingTable.Insert(node, false)
     if ok {
         return
@@ -204,14 +267,14 @@ func (d *DHT) Insert(node ds.Node) {
                 log.Error("error when inserting new node", err)
             }
         }),
-        OnResponse: Dispatcher.NewCallback(d.OnPingResponse, node),
-        OnRetry:    Dispatcher.NewCallback(d.SendPingRequest, node, tx),
+        OnResponse: Dispatcher.NewCallback(d.onPingResponse, node),
+        OnRetry:    Dispatcher.NewCallback(d.sendPingRequest, node, tx),
     })
 
-    d.SendPingRequest(node, tx)
+    d.sendPingRequest(node, tx)
 }
 
-func (d *DHT) Router(data []byte, addr net.UDPAddr) {
+func (d *DHT) router(data []byte, addr net.UDPAddr) {
     var msg message.Message
 
     g, ok := message.BytesToMessage(data)
@@ -244,7 +307,7 @@ func (d *DHT) Router(data []byte, addr net.UDPAddr) {
         }
 
         msg.Decode(g)
-        d.ManageRequest(msg, addr)
+        d.manageRequest(msg, addr)
 
     case "r":
         callback, exists := d.eventDispatcher.GetCallback(g.T)

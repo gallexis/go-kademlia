@@ -8,12 +8,11 @@ import (
 
 const DefaultEventTimeout = time.Second * 5
 
-
 type Dispatcher struct {
     sync.Mutex
-    out  chan bool
-    Tick <-chan time.Time
-    Map  map[string]Event
+    out          chan bool
+    Tick         <-chan time.Time
+    Map          map[string]Event
     callbackChan chan Callback
 }
 
@@ -31,36 +30,36 @@ func (d *Dispatcher) Stop() {
 }
 
 func (d *Dispatcher) Start() {
-    go func() {
-        for {
-            select {
-            case <-d.Tick:
-                now := time.Now()
+    for {
+        select {
+        case <-d.Tick:
+            now := time.Now()
 
-                for k, event := range d.Map {
-                    if !event.HasTimedOut(now, DefaultEventTimeout) {
-                        continue
-                    }
-
-                    if event.Retries > 0{
-                        event.Retries -= 1
-                        d.callbackChan <- event.OnRetry // Can lock here if we lock mutex
-                        d.Map[k] = event
-                    } else{
-                        d.callbackChan <- event.OnTimeout // here too
-                        delete(d.Map, k)
-                    }
+            d.Lock()
+            for k, event := range d.Map {
+                if !event.HasTimedOut(now, DefaultEventTimeout) {
+                    continue
                 }
 
-            case <-d.out:
-                return
+                if event.Retries > 0 {
+                    event.Retries -= 1
+                    d.callbackChan <- event.OnRetry
+                    d.Map[k] = event
+                } else {
+                    d.callbackChan <- event.OnTimeout
+                    delete(d.Map, k)
+                }
             }
+            d.Unlock()
+
+        case <-d.out:
+            return
         }
-    }()
+    }
 }
 
 func (d *Dispatcher) AddEvent(tx string, event Event) {
-    if event.Retries > 0 && !event.OnRetry.isSet(){
+    if event.Retries > 0 && !event.OnRetry.isSet() {
         log.Warn("when Retries is > 0, you must set a OnRetry callback")
     }
 

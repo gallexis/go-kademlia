@@ -76,7 +76,7 @@ func (t TransactionId) String() string {
 }
 
 func NewTransactionId() TransactionId {
-    tx := make([]byte, 2)
+    tx := make([]byte, 10)
     if _, err := rand.Read(tx); err != nil {
         log.Panicf("Failed to generate NewTransactionId: %v", err)
     }
@@ -92,7 +92,33 @@ func NewTransactionIdFromString(tx string) TransactionId {
     return t
 }
 
-type Token = TransactionId
+type Token []byte
+
+func (t Token) Equals(other Token) bool{
+    if len(t) != len(other){
+        return false
+    }
+
+    for i := range other{
+        if t[i] != other[i]{
+            return false
+        }
+    }
+    return true
+}
+
+func (t Token) String() string {
+    return hex.EncodeToString([]byte(t))
+}
+
+func NewToken() Token {
+    tx := make([]byte, 10)
+    if _, err := rand.Read(tx); err != nil {
+        log.Panicf("Failed to generate NewTransactionId: %v", err)
+    }
+    return tx
+}
+
 
 type Message interface {
     Encode() []byte

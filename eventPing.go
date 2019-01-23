@@ -8,14 +8,14 @@ import (
 )
 
 // PING
-func (d *DHT) OnPingResponse(node ds.Node, ping *message.PingResponse, addr net.UDPAddr) {
-    log.Info("OnPingResponse", addr)
+func (d *DHT) onPingResponse(node ds.Node, ping *message.PingResponse, addr net.UDPAddr) {
+    log.Info("onPingResponse", addr)
     d.routingTable.UpdateNodeStatus(ping.Id)
     d.PingPool <- node
 }
 
-func (d *DHT) OnPingRequest(msg *message.PingRequest, addr net.UDPAddr) {
-    log.Info("OnPingRequest")
+func (d *DHT) onPingRequest(msg *message.PingRequest, addr net.UDPAddr) {
+    log.Info("onPingRequest")
     pingResponse := message.PingResponse{
         T:  msg.T,
         Id: d.selfNodeID,
@@ -28,7 +28,7 @@ func (d *DHT) OnPingRequest(msg *message.PingRequest, addr net.UDPAddr) {
     }
 }
 
-func (d *DHT) SendPingRequest(node ds.Node, tx message.TransactionId) {
+func (d *DHT) sendPingRequest(node ds.Node, tx message.TransactionId) {
     node.Send(d.conn, message.PingRequest{
         T:  tx,
         Id: d.selfNodeID,
