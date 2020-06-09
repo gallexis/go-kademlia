@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-
 func TestNewNodeID(t *testing.T) {
 	if ds.NewNodeID() == ds.NewNodeID() {
 		t.Error("Very suspicious if the 2 nodes ID are identical")
@@ -77,4 +76,3 @@ func TestNodeID_String(t *testing.T) {
 		t.Error("Error when converting node ID to string")
 	}
 }
-
